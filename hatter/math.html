@@ -1,0 +1,3268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HatScope · 数学绘图</title>
+    <link rel="icon" href="hatter.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080810;
+            --surface: #111120;
+            --surface-hover: #181830;
+            --surface-glass: rgba(17, 17, 32, 0.85);
+            --border: rgba(255, 255, 255, 0.06);
+            --border-strong: rgba(255, 255, 255, 0.10);
+            --text: #e0e0f0;
+            --text-secondary: #8888a0;
+            --text-tertiary: #555570;
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --primary-dim: rgba(99, 102, 241, 0.15);
+            --accent: #8b5cf6;
+            --danger: #ef4444;
+            --danger-dim: rgba(239, 68, 68, 0.12);
+            --success: #10b981;
+            --canvas-bg: #0c0c18;
+            --grid-line: rgba(255, 255, 255, 0.03);
+            --axis-line: rgba(255, 255, 255, 0.10);
+            --radius: 10px;
+            --radius-lg: 14px;
+            --radius-xl: 18px;
+            --sidebar-w: 340px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-theme="light"] {
+            --bg: #f0f0f5;
+            --surface: #ffffff;
+            --surface-hover: #f5f5fa;
+            --surface-glass: rgba(255, 255, 255, 0.90);
+            --border: rgba(0, 0, 0, 0.06);
+            --border-strong: rgba(0, 0, 0, 0.10);
+            --text: #1a1a2e;
+            --text-secondary: #6b7280;
+            --text-tertiary: #9ca3af;
+            --primary-dim: rgba(99, 102, 241, 0.08);
+            --danger-dim: rgba(239, 68, 68, 0.08);
+            --canvas-bg: #ffffff;
+            --grid-line: #f0f0f5;
+            --axis-line: #d1d1d6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::selection { background: rgba(99, 102, 241, 0.25); color: var(--text); }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 100px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+        [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.10); }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ========= Layout ========= */
+        .app {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ========= Canvas Area ========= */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            overflow: hidden;
+        }
+
+        .canvas-area::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            right: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.04) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        #cartesianCanvas {
+            display: block;
+            background-color: var(--canvas-bg);
+            border-radius: var(--radius-lg);
+            cursor: crosshair;
+            max-width: calc(100% - 32px);
+            max-height: calc(100% - 32px);
+            aspect-ratio: 1/1;
+            box-shadow: 0 0 0 1px var(--border), 0 8px 40px rgba(0,0,0,0.3);
+            transition: box-shadow var(--transition);
+        }
+
+        [data-theme="light"] #cartesianCanvas {
+            box-shadow: 0 0 0 1px var(--border), 0 8px 40px rgba(0,0,0,0.08);
+        }
+
+        /* Canvas Floating Controls */
+        .canvas-controls {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 6px;
+            background: var(--surface-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            z-index: 10;
+        }
+
+        .canvas-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: var(--radius);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            font-size: 0;
+        }
+
+        .canvas-btn:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        .canvas-btn:active { transform: scale(0.92); }
+
+        .canvas-btn svg { width: 18px; height: 18px; }
+
+        .canvas-btn.danger:hover {
+            background: var(--danger-dim);
+            color: var(--danger);
+        }
+
+        .canvas-btn.save-btn:hover {
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--success);
+        }
+
+        .canvas-btn-divider {
+            width: 24px;
+            height: 1px;
+            background: var(--border-strong);
+            margin: 2px auto;
+        }
+
+        /* Canvas Coordinate Overlay */
+        .canvas-coords {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 6px;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity var(--transition);
+            pointer-events: none;
+        }
+
+        .canvas-area:hover .canvas-coords { opacity: 1; }
+
+        .coord-chip {
+            background: var(--surface-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Canvas Empty Hint */
+        .canvas-empty-hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            pointer-events: none;
+            z-index: 5;
+            transition: opacity 0.5s;
+        }
+
+        .canvas-empty-hint.hidden { opacity: 0; }
+
+        .empty-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+            animation: floatIcon 3s ease-in-out infinite;
+        }
+
+        @keyframes floatIcon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        .empty-icon svg { width: 28px; height: 28px; color: white; }
+
+        .empty-text {
+            font-size: 0.85rem;
+            color: var(--text-tertiary);
+            font-weight: 500;
+        }
+
+        .empty-sub {
+            font-size: 0.72rem;
+            color: var(--text-tertiary);
+            opacity: 0.6;
+        }
+
+        /* ========= Sidebar ========= */
+        .sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+        }
+
+        .sidebar-logo svg { width: 18px; height: 18px; }
+
+        .sidebar-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }
+
+        .sidebar-header-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            font-size: 0;
+            text-decoration: none;
+        }
+
+        .icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+        .icon-btn:active { transform: scale(0.92); }
+        .icon-btn svg { width: 16px; height: 16px; }
+
+        /* Sidebar Body (scrollable) */
+        .sidebar-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-tertiary);
+            margin-bottom: 8px;
+        }
+
+        /* Preset Gallery */
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .preset-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 6px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: transparent;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .preset-card:hover {
+            border-color: var(--border-strong);
+            background: var(--surface-hover);
+            transform: translateY(-1px);
+        }
+
+        .preset-card:active { transform: scale(0.96); }
+
+        .preset-card canvas {
+            width: 100%;
+            aspect-ratio: 4/3;
+            border-radius: 6px;
+            pointer-events: none;
+        }
+
+        .preset-label {
+            font-size: 0.65rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Model Selector */
+        .model-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .segmented {
+            display: flex;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+            padding: 2px;
+            gap: 2px;
+            flex: 1;
+        }
+
+        [data-theme="light"] .segmented { background: rgba(0, 0, 0, 0.04); }
+
+        .seg-btn {
+            flex: 1;
+            padding: 6px 0;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+            color: var(--text-secondary);
+            background: transparent;
+        }
+
+        .seg-btn:hover { color: var(--text); }
+
+        .seg-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        .think-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.72rem;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+            color: var(--text-secondary);
+            background: transparent;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .think-btn:hover { border-color: var(--border-strong); color: var(--text); }
+        .think-btn:active { transform: scale(0.96); }
+        .think-btn svg { width: 14px; height: 14px; }
+
+        .think-btn.active {
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 2px 10px rgba(139, 92, 246, 0.3);
+            animation: thinkPulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes thinkPulse {
+            0%, 100% { box-shadow: 0 2px 10px rgba(139, 92, 246, 0.3); }
+            50% { box-shadow: 0 2px 20px rgba(139, 92, 246, 0.5); }
+        }
+
+        /* Preset Editor */
+        .preset-editor {
+            background: rgba(99, 102, 241, 0.04);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            animation: editorIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .preset-editor.visible { display: flex; }
+
+        @keyframes editorIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .editor-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            background: var(--surface);
+            z-index: 1;
+            padding-bottom: 6px;
+        }
+
+        .editor-title {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .editor-close {
+            width: 22px;
+            height: 22px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            transition: all var(--transition);
+        }
+
+        .editor-close:hover { background: var(--surface-hover); color: var(--text); }
+
+        .editor-fields {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .editor-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .editor-row > * { flex: 1; }
+
+        .editor-field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .editor-field.full { flex: 1; }
+
+        .editor-hint {
+            font-size: 0.62rem;
+            color: var(--text-tertiary);
+            line-height: 1.5;
+            padding: 6px 8px;
+            background: rgba(99, 102, 241, 0.05);
+            border-radius: 6px;
+            border-left: 2px solid var(--primary-dim);
+        }
+
+        .editor-field input {
+            padding: 7px 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 7px;
+            font-size: 0.78rem;
+            background: var(--bg);
+            outline: none;
+            transition: all var(--transition);
+            font-family: 'Fira Code', monospace;
+            color: var(--text);
+            width: 100%;
+            min-width: 0;
+        }
+
+        .editor-field input:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+        }
+
+        .editor-field input[type="color"] {
+            height: 34px;
+            padding: 4px 6px;
+            cursor: pointer;
+        }
+
+        .editor-field select {
+            padding: 7px 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 7px;
+            font-size: 0.78rem;
+            background: var(--bg);
+            outline: none;
+            font-family: inherit;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 6px;
+            position: sticky;
+            bottom: 0;
+            background: var(--surface);
+            padding-top: 6px;
+        }
+
+        .editor-btn {
+            flex: 1;
+            padding: 8px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .editor-btn.primary {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        .editor-btn.primary:hover { box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4); transform: translateY(-1px); }
+        .editor-btn.primary:active { transform: scale(0.97); }
+
+        .editor-btn.cancel {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .editor-btn.cancel:hover { border-color: var(--border-strong); color: var(--text); }
+
+        /* Preset Card */
+        .preset-card canvas { display: block; }
+        .preset-label { display: block; }
+
+        /* Function List */
+        .func-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            min-height: 28px;
+        }
+
+        .func-empty {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+
+        .func-badge {
+            background: var(--primary-dim);
+            border: 1px solid var(--border);
+            padding: 4px 8px 4px 6px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 500;
+            cursor: default;
+            transition: all var(--transition);
+        }
+
+        .func-badge:hover {
+            border-color: var(--border-strong);
+        }
+
+        .color-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .func-badge .del-btn {
+            background: none;
+            border: none;
+            padding: 0 1px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: var(--text-tertiary);
+            line-height: 1;
+            transition: all var(--transition);
+            border-radius: 4px;
+        }
+
+        .func-badge .del-btn:hover {
+            color: var(--danger);
+            background: var(--danger-dim);
+        }
+
+        /* Thinking Box */
+        .thinking-box {
+            background: rgba(139, 92, 246, 0.06);
+            border: 1px solid rgba(139, 92, 246, 0.12);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            max-height: 0;
+            overflow: hidden;
+            white-space: pre-wrap;
+            font-family: 'Fira Code', monospace;
+            line-height: 1.6;
+            transition: all 0.3s;
+            opacity: 0;
+        }
+
+        .thinking-box.visible {
+            max-height: 160px;
+            overflow-y: auto;
+            opacity: 1;
+        }
+
+        .thinking-box .reasoning-section {
+            color: #8b5cf6;
+            border-left: 2px solid #8b5cf6;
+            padding-left: 10px;
+            margin-bottom: 8px;
+            font-style: italic;
+        }
+
+        .thinking-box .content-section { color: var(--text); }
+
+        .thinking-box .section-label {
+            font-weight: 600;
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
+            font-style: normal;
+            color: var(--text-tertiary);
+        }
+
+        /* Sidebar Footer */
+        .sidebar-footer {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.82rem;
+            background: var(--bg);
+            outline: none;
+            transition: all var(--transition);
+            font-family: inherit;
+            color: var(--text);
+        }
+
+        .input-row input::placeholder { color: var(--text-tertiary); }
+
+        .input-row input:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+        }
+
+        .send-btn {
+            padding: 0 18px;
+            border: none;
+            border-radius: var(--radius);
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+
+        .send-btn:hover {
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .send-btn:active { transform: scale(0.97); }
+        .send-btn svg { width: 15px; height: 15px; }
+
+        .send-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            flex-shrink: 0;
+        }
+
+        .status-dot.thinking {
+            background: var(--primary);
+            animation: statusPulse 1.2s ease-in-out infinite;
+        }
+
+        .status-dot.error { background: var(--danger); }
+
+        @keyframes statusPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .status-text {
+            font-size: 0.72rem;
+            color: var(--text-tertiary);
+            font-weight: 500;
+        }
+
+        /* ========= Toast ========= */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 10px 18px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: toastIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+            backdrop-filter: blur(20px);
+            pointer-events: auto;
+        }
+
+        .toast.leaving { animation: toastOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(-12px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(-12px) scale(0.95); }
+        }
+
+        .toast-icon { width: 16px; height: 16px; flex-shrink: 0; }
+        .toast-icon.success { color: var(--success); }
+        .toast-icon.error { color: var(--danger); }
+        .toast-icon.info { color: var(--primary); }
+
+        /* ========= Save Flash ========= */
+        .canvas-btn.save-flash {
+            background: rgba(16, 185, 129, 0.2) !important;
+            color: var(--success) !important;
+        }
+
+        /* ========= Responsive ========= */
+        @media (max-width: 900px) {
+            .app {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                min-width: 100%;
+                height: auto;
+                max-height: 45vh;
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+            .canvas-area {
+                height: 55vh;
+                flex: none;
+            }
+            #cartesianCanvas {
+                max-width: calc(100% - 16px);
+                max-height: calc(100% - 16px);
+            }
+            .canvas-controls {
+                right: 10px;
+                padding: 4px;
+            }
+            .canvas-btn { width: 30px; height: 30px; }
+            .canvas-btn svg { width: 14px; height: 14px; }
+        }
+
+        @media (max-width: 600px) {
+            .preset-card canvas { display: none; }
+            .preset-card { padding: 5px 8px; border-radius: 8px; }
+            .preset-grid { grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar-body { padding: 10px 12px; gap: 12px; }
+            .sidebar-footer { padding: 10px 12px; }
+            .preset-card { padding: 6px 5px; }
+            .preset-label { font-size: 0.68rem; }
+            .canvas-controls {
+                right: 6px;
+                padding: 3px;
+                gap: 2px;
+            }
+            .canvas-btn { width: 28px; height: 28px; }
+            .canvas-btn svg { width: 13px; height: 13px; }
+            .canvas-btn-divider { display: none; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* ========= Slider Panel ========= */
+        .slider-card {
+            background: rgba(99, 102, 241, 0.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: all var(--transition);
+        }
+
+        .slider-card:hover {
+            border-color: var(--border-strong);
+        }
+
+        .slider-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .slider-name {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text);
+            font-family: 'Fira Code', monospace;
+            background: var(--primary-dim);
+            padding: 2px 8px;
+            border-radius: 5px;
+            min-width: 28px;
+            text-align: center;
+        }
+
+        .slider-value-display {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-family: 'Fira Code', monospace;
+            flex: 1;
+            text-align: right;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .slider-minmax {
+            font-size: 0.6rem;
+            color: var(--text-tertiary);
+            font-family: 'Fira Code', monospace;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        .slider-track {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 5px;
+            border-radius: 100px;
+            background: var(--border);
+            outline: none;
+            cursor: pointer;
+            transition: background var(--transition);
+        }
+
+        .slider-track::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: 2px solid rgba(255,255,255,0.2);
+            cursor: grab;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+            transition: all var(--transition);
+        }
+
+        .slider-track::-webkit-slider-thumb:active {
+            cursor: grabbing;
+            transform: scale(1.1);
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.5);
+        }
+
+        [data-theme="light"] .slider-track::-webkit-slider-thumb {
+            border-color: rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        .slider-track::-moz-range-thumb {
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: 2px solid rgba(255,255,255,0.2);
+            cursor: grab;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+        }
+
+        .slider-card-actions {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .slider-play-btn {
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            font-size: 0.6rem;
+            flex-shrink: 0;
+        }
+
+        .slider-play-btn:hover {
+            border-color: var(--primary-light);
+            color: var(--primary-light);
+            background: var(--primary-dim);
+        }
+
+        .slider-play-btn.playing {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .slider-play-btn.playing:hover {
+            background: var(--primary-light);
+        }
+
+        .slider-play-btn svg {
+            width: 10px;
+            height: 10px;
+        }
+
+        .slider-speed-btn {
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55rem;
+            font-weight: 600;
+            transition: all var(--transition);
+            font-family: 'Fira Code', monospace;
+            flex-shrink: 0;
+        }
+
+        .slider-speed-btn:hover {
+            border-color: var(--border-strong);
+            color: var(--text);
+        }
+
+        .slider-delete-btn {
+            width: 24px;
+            height: 24px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            transition: all var(--transition);
+            flex-shrink: 0;
+        }
+
+        .slider-delete-btn:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: var(--danger-dim);
+        }
+
+        .slider-add-btn {
+            width: 100%;
+            padding: 6px 0;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+            background: transparent;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 500;
+            font-family: inherit;
+            transition: all var(--transition);
+        }
+
+        .slider-add-btn:hover {
+            border-color: var(--primary-light);
+            color: var(--primary-light);
+            background: var(--primary-dim);
+        }
+
+        .slider-add-popup {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px;
+            background: rgba(99, 102, 241, 0.04);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+
+        .slider-add-popup.visible {
+            display: flex;
+            animation: editorIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .slider-add-row {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .slider-add-row label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            min-width: 28px;
+            font-weight: 500;
+        }
+
+        .slider-add-row input {
+            flex: 1;
+            padding: 5px 8px;
+            border: 1.5px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.72rem;
+            background: var(--bg);
+            outline: none;
+            font-family: 'Fira Code', monospace;
+            color: var(--text);
+            min-width: 0;
+        }
+
+        .slider-add-row input:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.08);
+        }
+
+        .slider-confirm-btn {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 6px;
+            background: var(--primary);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all var(--transition);
+        }
+
+        .slider-confirm-btn:hover {
+            background: var(--primary-light);
+        }
+
+        .slider-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        /* ========= Compact Toolbar ========= */
+        .toolbar-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 4px;
+        }
+
+        .tool-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px 2px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.68rem;
+            font-weight: 500;
+            font-family: 'Fira Code', monospace;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .tool-btn:hover {
+            border-color: var(--primary-light);
+            color: var(--primary-light);
+            background: var(--primary-dim);
+        }
+
+        .tool-btn:active { transform: scale(0.95); }
+        .tool-btn.dynamic { border-color: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .tool-btn.dynamic:hover { border-color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+        .tool-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* ========= Named Point Badges ========= */
+        .point-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            min-height: 22px;
+        }
+
+        .point-badge {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 3px 7px;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            font-family: 'Fira Code', monospace;
+            color: var(--success);
+            cursor: pointer;
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .point-badge:hover {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: var(--success);
+        }
+
+        .point-badge.dynamic {
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .point-badge.selected {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-dim);
+        }
+
+        /* ========= Connection Controls ========= */
+        .connect-row {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .connect-btn {
+            flex: 1;
+            padding: 5px 0;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.65rem;
+            font-weight: 500;
+            font-family: inherit;
+            transition: all var(--transition);
+        }
+
+        .connect-btn:hover {
+            border-color: var(--primary-light);
+            color: var(--primary-light);
+            background: var(--primary-dim);
+        }
+
+        .connect-btn.segment { border-color: rgba(245, 158, 11, 0.3); color: #f59e0b; }
+        .connect-btn.segment:hover { border-color: #f59e0b; background: rgba(245, 158, 11, 0.08); }
+        .connect-btn.line { border-color: rgba(99, 102, 241, 0.3); color: #6366f1; }
+        .connect-btn.line:hover { border-color: #6366f1; background: rgba(99, 102, 241, 0.08); }
+        .connect-btn.ray { border-color: rgba(239, 68, 68, 0.3); color: #ef4444; }
+        .connect-btn.ray:hover { border-color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+
+        .connect-hint {
+            font-size: 0.62rem;
+            color: var(--text-tertiary);
+            text-align: center;
+        }
+
+        .connect-hint .hl { color: var(--primary-light); font-weight: 600; }
+
+        /* ========= Math Keyboard ========= */
+        .math-keyboard {
+            display: none;
+            flex-direction: column;
+            gap: 3px;
+            padding: 6px;
+            background: rgba(99, 102, 241, 0.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            animation: editorIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .math-keyboard.visible { display: flex; }
+
+        .mkb-row {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+        }
+
+        .mkb-key {
+            padding: 4px 7px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.68rem;
+            font-weight: 500;
+            font-family: 'Fira Code', monospace;
+            transition: all var(--transition);
+            min-width: 26px;
+            text-align: center;
+        }
+
+        .mkb-key:hover {
+            border-color: var(--primary-light);
+            color: var(--primary-light);
+            background: var(--primary-dim);
+        }
+
+        .mkb-key:active { transform: scale(0.93); }
+        .mkb-key.fn { color: #10b981; border-color: rgba(16, 185, 129, 0.2); }
+        .mkb-key.fn:hover { border-color: #10b981; background: rgba(16, 185, 129, 0.08); }
+        .mkb-key.op { color: #f59e0b; border-color: rgba(245, 158, 11, 0.2); }
+        .mkb-key.op:hover { border-color: #f59e0b; background: rgba(245, 158, 11, 0.08); }
+        .mkb-key.greek { color: #ec4899; border-color: rgba(236, 72, 153, 0.2); }
+        .mkb-key.greek:hover { border-color: #ec4899; background: rgba(236, 72, 153, 0.08); }
+
+        .kb-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 3px 8px;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            font-size: 0.6rem;
+            font-weight: 600;
+            font-family: 'Fira Code', monospace;
+            transition: all var(--transition);
+        }
+
+        .kb-toggle:hover { border-color: var(--primary-light); color: var(--primary-light); }
+        .kb-toggle.active { background: var(--primary-dim); color: var(--primary-light); border-color: var(--primary-dim); }
+    </style>
+</head>
+<body>
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="app">
+        <!-- Canvas Area -->
+        <div class="canvas-area">
+            <canvas id="cartesianCanvas" width="800" height="800"></canvas>
+
+            <div class="canvas-controls">
+                <button class="canvas-btn" id="zoomInBtn" title="放大">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                </button>
+                <button class="canvas-btn" id="zoomOutBtn" title="缩小">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                </button>
+                <div class="canvas-btn-divider"></div>
+                <button class="canvas-btn" id="fitViewBtn" title="适应图形">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                </button>
+                <button class="canvas-btn" id="resetViewBtn" title="重置视图">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                </button>
+                <div class="canvas-btn-divider"></div>
+                <button class="canvas-btn save-btn" id="saveBtn" title="保存为PNG">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button class="canvas-btn danger" id="clearAllBtn" title="清除所有">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                </button>
+            </div>
+
+            <div class="canvas-coords">
+                <span class="coord-chip">x: <span id="coordX">0.00</span></span>
+                <span class="coord-chip">y: <span id="coordY">0.00</span></span>
+                <span class="coord-chip"><span id="zoomLevel">1.0</span>x</span>
+            </div>
+
+            <div class="canvas-empty-hint" id="canvasEmptyHint">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 5 5-9"/></svg>
+                </div>
+                <div class="empty-text">输入指令或点击预设开始绘图</div>
+                <div class="empty-sub">支持自然语言描述 · 拖拽平移 · 滚轮缩放</div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <span class="sidebar-logo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 5 5-9"/></svg>
+                    </span>
+                    <span class="sidebar-title">HatScope</span>
+                </div>
+                <div class="sidebar-header-actions">
+                    <button class="icon-btn" id="themeToggle" title="切换主题">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                    </button>
+                    <a href="index.html" class="icon-btn" title="返回">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    </a>
+                </div>
+            </div>
+
+            <div class="sidebar-body">
+                <!-- Toolbar -->
+                <section>
+                    <div class="section-label">绘图工具</div>
+                    <div class="toolbar-row" id="toolbar"></div>
+                </section>
+
+                <!-- Named Points -->
+                <section>
+                    <div class="section-label">命名点 <span style="font-size:0.6rem;color:var(--text-tertiary);">（点击选择）</span></div>
+                    <div class="point-list" id="pointList">
+                        <span class="func-empty">点击工具添加点</span>
+                    </div>
+                    <div class="connect-row" style="margin-top:6px;">
+                        <button class="connect-btn segment" id="btnSegment" title="连接选中两点为线段">━ 线段</button>
+                        <button class="connect-btn line" id="btnLine" title="过选中两点作直线">↔ 直线</button>
+                        <button class="connect-btn ray" id="btnRay" title="从P₁出发过P₂作射线">→ 射线</button>
+                    </div>
+                    <div class="connect-hint">选中 <span class="hl">2个点</span> 后可连线</div>
+                </section>
+
+                <!-- Slider Panel -->
+                <section>
+                    <div class="section-label">滑动条</div>
+                    <div class="slider-list" id="sliderList"></div>
+                    <button class="slider-add-btn" id="addSliderBtn" style="margin-top:6px;">+ 添加滑动条</button>
+                    <div class="slider-add-popup" id="sliderAddPopup">
+                        <div class="slider-add-row">
+                            <label>名称</label>
+                            <input type="text" id="sliderNameInput" value="t" maxlength="3" placeholder="t">
+                        </div>
+                        <div class="slider-add-row">
+                            <label>最小值</label>
+                            <input type="number" id="sliderMinInput" value="0" step="0.5">
+                        </div>
+                        <div class="slider-add-row">
+                            <label>最大值</label>
+                            <input type="number" id="sliderMaxInput" value="10" step="0.5">
+                        </div>
+                        <div class="slider-add-row">
+                            <label>步长</label>
+                            <input type="number" id="sliderStepInput" value="0.1" step="0.05" min="0.01">
+                        </div>
+                        <div class="slider-add-row">
+                            <label>初始值</label>
+                            <input type="number" id="sliderInitInput" value="0" step="0.1">
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            <button class="slider-confirm-btn" id="sliderConfirmBtn">确认添加</button>
+                            <button class="editor-btn cancel" id="sliderCancelBtn" style="flex:1;">取消</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Function List -->
+                <section>
+                    <div class="section-label">当前图形</div>
+                    <div class="func-list" id="functionList">
+                        <span class="func-empty">暂无图形</span>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Footer: Input + Status -->
+            <div class="sidebar-footer">
+                <div class="math-keyboard" id="mathKeyboard"></div>
+                <div class="thinking-box" id="thinkingBox"></div>
+                <div class="input-row">
+                    <input type="text" id="userInput" placeholder="输入绘图指令，如：画红色正弦曲线" autocomplete="off">
+                    <button class="send-btn" id="sendBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        发送
+                    </button>
+                </div>
+                <div class="status-row" style="justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span class="status-text" id="statusMsg">就绪</span>
+                    </div>
+                    <button class="kb-toggle" id="kbToggleBtn">π 键盘</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        (function() {
+            const CACHE_KEY = 'hatscope_ds_apikey';
+            const DEEPTHINK_KEY = 'hatscope_deepthink';
+            const MODEL_KEY = 'hatscope_model';
+            const THEME_KEY = 'hatscope_theme';
+            const API_URL = "https://api.deepseek.com/v1/chat/completions";
+            let API_KEY = '';
+            let currentModel = "deepseek-v4-flash";
+            let deepThinkEnabled = false;
+
+            let xMin = -6.0, xMax = 6.0, yMin = -6.0, yMax = 6.0;
+            const DEFAULT = { xMin: -6, xMax: 6, yMin: -6, yMax: 6 };
+            const LOGICAL_W = 800, LOGICAL_H = 800;
+            let canvas, ctx;
+            let graphics = [];
+            let animFrameId = null;
+            let currentHoverGraphic = null;
+
+            // ========= Tool Definitions =========
+            const TOOLS = [
+                { id: 'sin', label: 'sin', type: 'sin', params: { A: 1, B: 1, C: 0, D: 0 }, color: '#6366f1', lineWidth: 2.5, row: 1 },
+                { id: 'cos', label: 'cos', type: 'cos', params: { A: 1, B: 1, C: 0, D: 0 }, color: '#10b981', lineWidth: 2.5, row: 1 },
+                { id: 'quad', label: 'x²', type: 'quadratic', params: { a: 1, b: 0, c: 0 }, color: '#f59e0b', lineWidth: 2.5, row: 1 },
+                { id: 'exp', label: 'eˣ', type: 'exp', params: { a: 1, b: 1 }, color: '#eab308', lineWidth: 2.5, row: 1 },
+                { id: 'log', label: 'ln', type: 'log', params: { a: 1 }, color: '#0ea5e9', lineWidth: 2.5, row: 1 },
+                { id: 'abs', label: '|x|', type: 'abs', params: { a: 1, b: 0, c: 0 }, color: '#f97316', lineWidth: 2.5, row: 1 },
+                { id: 'line', label: '直线', type: 'line', params: { k: 1, b: 0 }, color: '#ef4444', lineWidth: 2.5, row: 2 },
+                { id: 'inv', label: '1/x', type: 'inverse', params: { k: 1 }, color: '#8b5cf6', lineWidth: 2.5, row: 2 },
+                { id: 'circle', label: '圆', type: 'circle', params: { cx: 0, cy: 0, r: 3 }, color: '#06b6d4', lineWidth: 2.5, fill: false, row: 2 },
+                { id: 'ellipse', label: '椭圆', type: 'ellipse', params: { cx: 0, cy: 0, rx: 4, ry: 2 }, color: '#ec4899', lineWidth: 2.5, fill: false, row: 2 },
+                { id: 'rect', label: '矩形', type: 'rectangle', x: -2, y: 1, w: 4, h: 2, color: '#a855f7', lineWidth: 2.5, fill: false, row: 2 },
+                { id: 'tri', label: '△ABC', type: 'polygon', points: [[0,0],[2,1],[1,3]], color: '#14b8a6', lineWidth: 2.5, fill: false, row: 2 },
+                { id: 'point', label: '·点', type: 'points', points: [[1,2]], color: '#10b981', size: 8, row: 3, isDynamic: false },
+                { id: 'seg', label: '━ 线', type: 'segment', points: [[-2,0],[2,3]], color: '#f43f5e', lineWidth: 2.5, row: 3 },
+                { id: 'ray', label: '→ 射', type: 'ray', points: [[0,0],[2,3]], color: '#f43f5e', lineWidth: 2.5, row: 3 },
+                { id: 'd_segment', label: '线动点', type: 'pt_segment', row: 4, dynamic: true },
+                { id: 'd_parabola', label: '抛动点', type: 'pt_parabola', row: 4, dynamic: true },
+                { id: 'd_circle', label: '圆动点', type: 'pt_circle', row: 4, dynamic: true },
+                { id: 'd_triangle', label: '△动点', type: 'pt_triangle_area', row: 4, dynamic: true },
+                { id: 'd_slope', label: '斜率点', type: 'pt_slope', row: 4, dynamic: true },
+                { id: 'd_ellipse', label: '椭动点', type: 'pt_ellipse', row: 4, dynamic: true },
+            ];
+
+            // Dynamic preset definitions
+            const DYNAMIC_DEFS = {
+                pt_segment: {
+                    label: '线段上动点', slider: { name: 't', min: 0, max: 1, step: 0.005, value: 0 },
+                    graphics: [
+                        { type: 'segment', points: [[-3, -1.5], [3, 2]], color: '#6366f1', lineWidth: 2.5 },
+                        { type: 'points', points: [[-3, -1.5], [3, 2]], color: '#6366f1', size: 7 },
+                        { type: 'namedPoint', x: -3, y: -1.5, label: 'A', color: '#6366f1' },
+                        { type: 'namedPoint', x: 3, y: 2, label: 'B', color: '#6366f1' },
+                        { type: 'paramPoint', xExpr: '-3 + 6*t', yExpr: '-1.5 + 3.5*t', color: '#ef4444', size: 10, label: 'P', trail: true },
+                    ]
+                },
+                pt_parabola: {
+                    label: '抛物线上动点', slider: { name: 't', min: -2, max: 2, step: 0.01, value: -2 },
+                    graphics: [
+                        { type: 'quadratic', params: { a: 1, b: 0, c: 0 }, color: '#6366f1', lineWidth: 2 },
+                        { type: 'paramPoint', xExpr: 't', yExpr: 't*t', color: '#ef4444', size: 10, label: 'P', trail: true },
+                    ]
+                },
+                pt_circle: {
+                    label: '圆上动点', slider: { name: 't', min: 0, max: 6.2832, step: 0.01, value: 0 },
+                    graphics: [
+                        { type: 'circle', params: { cx: 0, cy: 0, r: 3 }, color: '#6366f1', lineWidth: 2 },
+                        { type: 'paramPoint', xExpr: '3*cos(t)', yExpr: '3*sin(t)', color: '#ef4444', size: 10, label: 'P', trail: true },
+                        { type: 'namedPoint', x: 0, y: 0, label: 'O', color: '#f59e0b' },
+                    ]
+                },
+                pt_triangle_area: {
+                    label: '三角形面积', slider: { name: 't', min: 0, max: 1, step: 0.005, value: 0.5 },
+                    graphics: [
+                        { type: 'polygon', points: [[-3, -1.5], [3, -1.5], [0, 3.5]], color: '#6366f1', lineWidth: 2, fill: false },
+                        { type: 'namedPoint', x: 0, y: 3.5, label: 'A', color: '#6366f1' },
+                        { type: 'namedPoint', x: -3, y: -1.5, label: 'B', color: '#6366f1' },
+                        { type: 'namedPoint', x: 3, y: -1.5, label: 'C', color: '#6366f1' },
+                        { type: 'paramPoint', xExpr: '0', yExpr: '-1.5 + 5*t', color: '#ef4444', size: 10, label: 'P', trail: true },
+                        { type: 'segment', points: [[0, 3.5], [0, -1.5]], color: '#f59e0b', lineWidth: 1.5, strokeDash: [4, 4] },
+                    ]
+                },
+                pt_slope: {
+                    label: '一次函数动点', slider: { name: 't', min: -3, max: 3, step: 0.01, value: 1 },
+                    graphics: [
+                        { type: 'line', params: { k: 1, b: 0 }, color: '#8b5cf6', lineWidth: 1.5, strokeDash: [4, 4] },
+                        { type: 'paramPoint', xExpr: 't', yExpr: 't', color: '#ef4444', size: 10, label: 'P', trail: true },
+                        { type: 'namedPoint', x: 0, y: 0, label: 'O', color: '#f59e0b' },
+                    ]
+                },
+                pt_ellipse: {
+                    label: '椭圆上动点', slider: { name: 't', min: 0, max: 6.2832, step: 0.01, value: 0 },
+                    graphics: [
+                        { type: 'ellipse', cx: 0, cy: 0, rx: 3, ry: 2, color: '#6366f1', lineWidth: 2 },
+                        { type: 'paramPoint', xExpr: '3*cos(t)', yExpr: '2*sin(t)', color: '#ef4444', size: 10, label: 'P', trail: true },
+                    ]
+                },
+            };
+
+            let namedPoints = [];
+            let selectedPoints = [];
+            let sliders = [];
+            let animationRunning = false;
+
+            // ========= Slider Core =========
+            function evaluateExpr(expr, context) {
+                const keys = Object.keys(context);
+                const vals = Object.values(context);
+                try {
+                    return new Function(...keys, '"use strict"; return (' + expr + ');')(...vals);
+                } catch (e) {
+                    return NaN;
+                }
+            }
+
+            function getSliderParams() {
+                const ctx = {};
+                for (let s of sliders) ctx[s.name] = s.value;
+                return ctx;
+            }
+
+            function addSlider(name, min, max, step, value) {
+                if (sliders.find(s => s.name === name)) {
+                    showToast('滑动条 "' + name + '" 已存在', 'error');
+                    return;
+                }
+                sliders.push({ name, min, max, step: step || 0.1, value: value !== undefined ? value : min, playing: false, speed: 1 });
+                renderSliders();
+                redraw();
+            }
+
+            function removeSlider(name) {
+                sliders = sliders.filter(s => s.name !== name);
+                if (sliders.length === 0) stopAllAnimations();
+                renderSliders();
+                redraw();
+            }
+
+            function stopAllAnimations() {
+                for (let s of sliders) s.playing = false;
+                animationRunning = false;
+                renderSliders();
+            }
+
+            function renderSliders() {
+                const container = document.getElementById('sliderList');
+                if (!container) return;
+                if (sliders.length === 0) {
+                    container.innerHTML = '<span class="func-empty">暂无滑动条，点击下方按钮添加</span>';
+                    return;
+                }
+                let html = '';
+                for (let s of sliders) {
+                    const pct = ((s.value - s.min) / (s.max - s.min)) * 100;
+                    html += `<div class="slider-card">
+                        <div class="slider-card-header">
+                            <span class="slider-name">${s.name}</span>
+                            <span class="slider-value-display">${s.value.toFixed(3)}</span>
+                        </div>
+                        <div class="slider-row">
+                            <span class="slider-minmax">${formatNum(s.min)}</span>
+                            <input type="range" class="slider-track" data-slider="${s.name}" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.value}">
+                            <span class="slider-minmax">${formatNum(s.max)}</span>
+                        </div>
+                        <div class="slider-card-actions">
+                            <button class="slider-play-btn${s.playing ? ' playing' : ''}" data-action="play" data-slider="${s.name}" title="${s.playing ? '暂停' : '播放'}">
+                                ${s.playing
+                                    ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+                                    : '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>'}
+                            </button>
+                            <button class="slider-speed-btn" data-action="speed" data-slider="${s.name}" title="速度: ${s.speed}x">×${s.speed}</button>
+                            <button class="slider-delete-btn" data-action="delete" data-slider="${s.name}" title="删除滑动条">&times;</button>
+                        </div>
+                    </div>`;
+                }
+                container.innerHTML = html;
+
+                for (let card of container.querySelectorAll('.slider-card')) {
+                    const track = card.querySelector('.slider-track');
+                    if (track) {
+                        track.addEventListener('input', function() {
+                            const sName = this.getAttribute('data-slider');
+                            const sObj = sliders.find(s => s.name === sName);
+                            if (sObj) {
+                                sObj.value = parseFloat(this.value);
+                                card.querySelector('.slider-value-display').textContent = sObj.value.toFixed(3);
+                            }
+                            redraw();
+                        });
+                    }
+                    const btns = card.querySelectorAll('button');
+                    for (let btn of btns) {
+                        btn.addEventListener('click', function() {
+                            const sName = this.getAttribute('data-slider');
+                            const action = this.getAttribute('data-action');
+                            const sObj = sliders.find(s => s.name === sName);
+                            if (!sObj) return;
+                            if (action === 'play') {
+                                sObj.playing = !sObj.playing;
+                                if (!sObj.playing) sObj.direction = 1;
+                                if (sliders.some(s => s.playing)) startAnimationLoop();
+                                else animationRunning = false;
+                            } else if (action === 'speed') {
+                                const speeds = [0.5, 1, 2, 4];
+                                const idx = speeds.indexOf(sObj.speed);
+                                sObj.speed = speeds[(idx + 1) % speeds.length];
+                                this.textContent = '×' + sObj.speed;
+                            } else if (action === 'delete') {
+                                removeSlider(sName);
+                            }
+                        });
+                    }
+                }
+            }
+
+            let lastAnimTime = 0;
+            function startAnimationLoop() {
+                if (animationRunning) return;
+                animationRunning = true;
+                lastAnimTime = performance.now();
+                function animate(time) {
+                    if (!animationRunning) return;
+                    const dt = Math.min((time - lastAnimTime) / 1000, 0.1);
+                    lastAnimTime = time;
+                    let anyPlaying = false;
+                    for (let s of sliders) {
+                        if (!s.playing) continue;
+                        anyPlaying = true;
+                        const range = s.max - s.min;
+                        const delta = (range / 5) * dt * s.speed;
+                        s.value += delta * s.direction;
+                        if (s.value >= s.max) {
+                            s.value = s.max;
+                            s.direction = -1;
+                        } else if (s.value <= s.min) {
+                            s.value = s.min;
+                            s.direction = 1;
+                        }
+                        s.value = Math.round(s.value / s.step) * s.step;
+                        s.value = Math.min(Math.max(s.value, s.min), s.max);
+                    }
+                    if (anyPlaying) {
+                        renderSliders();
+                        redraw();
+                        requestAnimationFrame(animate);
+                    } else {
+                        animationRunning = false;
+                        renderSliders();
+                        redraw();
+                    }
+                }
+                requestAnimationFrame(animate);
+            }
+
+            function toggleAddSliderPopup() {
+                const popup = document.getElementById('sliderAddPopup');
+                popup.classList.toggle('visible');
+                if (popup.classList.contains('visible')) {
+                    const usedNames = new Set(sliders.map(s => s.name));
+                    const defaultNames = ['t', 'k', 'a', 'p', 'q', 'm', 'n'];
+                    const nextName = defaultNames.find(n => !usedNames.has(n)) || 't';
+                    document.getElementById('sliderNameInput').value = nextName;
+                    document.getElementById('sliderMinInput').value = '0';
+                    document.getElementById('sliderMaxInput').value = '10';
+                    document.getElementById('sliderStepInput').value = '0.1';
+                    document.getElementById('sliderInitInput').value = '0';
+                }
+            }
+
+            function buildKeyboard() {
+                const kb = document.getElementById('mathKeyboard');
+                if (!kb) return;
+                const keys = [
+                    ['7','8','9','/','(',')','^','√'],
+                    ['4','5','6','*','[',']','|','⌫'],
+                    ['1','2','3','-','<','>','=','±'],
+                    ['0','.','π','+','t','x','y','z'],
+                    ['sin','cos','tan','ln','log','exp','e','²'],
+                    ['α','β','γ','θ','φ','ω','π','Δ'],
+                    ['sin(', 'cos(', 'tan(', 'ln(', 'log(','| |','x²','∞'],
+                ];
+                let html = '';
+                for (let row of keys) {
+                    html += '<div class="mkb-row">';
+                    for (let k of row) {
+                        let cls = 'mkb-key';
+                        if (['sin','cos','tan','ln','log','exp','sin(','cos(','tan(','ln(','log('].includes(k)) cls += ' fn';
+                        else if (['+','-','*','/','^','(',')','[',']','<','>','=','|','| |','±','²'].includes(k)) cls += ' op';
+                        else if (['α','β','γ','θ','φ','ω','π','Δ'].includes(k)) cls += ' greek';
+                        const label = k === '⌫' ? '⌫' : k;
+                        html += `<button class="${cls}" data-key="${k}">${label}</button>`;
+                    }
+                    html += '</div>';
+                }
+                kb.innerHTML = html;
+                kb.querySelectorAll('.mkb-key').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const key = this.getAttribute('data-key');
+                        insertKey(key);
+                    });
+                });
+            }
+
+            function insertKey(key) {
+                const input = document.getElementById('userInput');
+                if (!input) return;
+                if (key === '⌫') {
+                    input.value = input.value.slice(0, -1);
+                } else if (key === '| |') {
+                    const s = input.selectionStart || input.value.length;
+                    input.value = input.value.slice(0, s) + '|x|' + input.value.slice(s);
+                    input.selectionStart = input.selectionEnd = s + 3;
+                } else if (key === 'x²') {
+                    const s = input.selectionStart || input.value.length;
+                    input.value = input.value.slice(0, s) + '^2' + input.value.slice(s);
+                    input.selectionStart = input.selectionEnd = s + 2;
+                } else if (key === '±') {
+                    const s = input.selectionStart || input.value.length;
+                    input.value = input.value.slice(0, s) + '±' + input.value.slice(s);
+                    input.selectionStart = input.selectionEnd = s + 1;
+                } else {
+                    const s = input.selectionStart !== null ? input.selectionStart : input.value.length;
+                    input.value = input.value.slice(0, s) + key + input.value.slice(s);
+                    input.selectionStart = input.selectionEnd = s + key.length;
+                }
+                input.focus();
+            }
+
+            function toggleKeyboard() {
+                const kb = document.getElementById('mathKeyboard');
+                const tb = document.getElementById('kbToggleBtn');
+                if (!kb) return;
+                kb.classList.toggle('visible');
+                if (tb) tb.classList.toggle('active', kb.classList.contains('visible'));
+            }
+
+            function confirmAddSlider() {
+                const name = document.getElementById('sliderNameInput').value.trim();
+                if (!name || !/^[a-zA-Z]\w{0,2}$/.test(name)) {
+                    showToast('名称需为1-3个字母', 'error');
+                    return;
+                }
+                const min = parseFloat(document.getElementById('sliderMinInput').value) || 0;
+                const max = parseFloat(document.getElementById('sliderMaxInput').value) || 10;
+                const step = parseFloat(document.getElementById('sliderStepInput').value) || 0.1;
+                const init = parseFloat(document.getElementById('sliderInitInput').value) || min;
+                if (min >= max) { showToast('最小值需小于最大值', 'error'); return; }
+                addSlider(name, min, max, step, Math.min(Math.max(init, min), max));
+                document.getElementById('sliderAddPopup').classList.remove('visible');
+            }
+
+            function applyDynamicPreset(preset) {
+                applyDynamicDef(preset);
+            }
+
+            function drawParamPoint(g, alpha) {
+                const params = getSliderParams();
+                let x = evaluateExpr(g.xExpr, params);
+                let y = evaluateExpr(g.yExpr, params);
+                if (!isFinite(x) || !isFinite(y) || isNaN(x) || isNaN(y)) return;
+                const { px, py } = worldToPixel(x, y);
+                if (px < -20 || px > LOGICAL_W + 20 || py < -20 || py > LOGICAL_H + 20) return;
+
+                // Trail
+                if (g.trail) {
+                    g._trail = g._trail || [];
+                    if (g._trail.length === 0 || Math.hypot(x - g._trail[g._trail.length - 1].x, y - g._trail[g._trail.length - 1].y) > 0.02) {
+                        g._trail.push({ x, y });
+                    }
+                    const maxTrail = 300;
+                    while (g._trail.length > maxTrail) g._trail.shift();
+                    if (g._trail.length > 1) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = g.color;
+                        ctx.lineWidth = g.lineWidth ? g.lineWidth * 0.6 : 1.5;
+                        ctx.globalAlpha = alpha * 0.6;
+                        ctx.lineCap = 'round';
+                        ctx.lineJoin = 'round';
+                        const first = worldToPixel(g._trail[0].x, g._trail[0].y);
+                        ctx.moveTo(first.px, first.py);
+                        for (let i = 1; i < g._trail.length; i++) {
+                            const tp = worldToPixel(g._trail[i].x, g._trail[i].y);
+                            ctx.lineTo(tp.px, tp.py);
+                        }
+                        ctx.stroke();
+                        ctx.globalAlpha = 1;
+                    }
+                }
+
+                ctx.beginPath();
+                ctx.globalAlpha = alpha;
+                const glowRadius = g.size / 2 + 4;
+                const glow = ctx.createRadialGradient(px, py, 0, px, py, glowRadius);
+                glow.addColorStop(0, g.color);
+                glow.addColorStop(1, 'transparent');
+                ctx.fillStyle = glow;
+                ctx.arc(px, py, glowRadius, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = g.color;
+                ctx.arc(px, py, g.size / 2, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+
+                if (g.label) {
+                    ctx.save();
+                    const fontSize = 13;
+                    ctx.font = `600 ${fontSize}px Outfit, -apple-system, sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    const labelText = g.labelExpr ? g.label.replace(/\{val\}/g, params[Object.keys(params)[0]]?.toFixed(2) || '') : g.label;
+                    const textWidth = ctx.measureText(labelText).width;
+                    const dark = isDark();
+                    ctx.fillStyle = dark ? 'rgba(12,12,24,0.85)' : 'rgba(255,255,255,0.85)';
+                    const lx = px, ly = py - g.size / 2 - 6;
+                    ctx.beginPath();
+                    ctx.ellipse(lx, ly - 2, textWidth / 2 + 6, fontSize / 2 + 3, 0, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.fillStyle = g.color;
+                    ctx.fillText(labelText, lx, ly);
+                    ctx.restore();
+                }
+            }
+
+            function drawParamCurve(g, alpha) {
+                const params = getSliderParams();
+                const tMin = g.tMin !== undefined ? g.tMin : 0;
+                const tMax = g.tMax !== undefined ? g.tMax : 1;
+                const steps = 500;
+                ctx.beginPath();
+                ctx.strokeStyle = g.color;
+                ctx.lineWidth = g.lineWidth || 2;
+                ctx.globalAlpha = alpha;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                const context = { ...params, t: undefined };
+                let first = true;
+                for (let i = 0; i <= steps; i++) {
+                    context.t = tMin + (i / steps) * (tMax - tMin);
+                    let x = evaluateExpr(g.xExpr, context);
+                    let y = evaluateExpr(g.yExpr, context);
+                    if (!isFinite(x) || !isFinite(y) || isNaN(x) || isNaN(y)) { first = true; continue; }
+                    const { px, py } = worldToPixel(x, y);
+                    if (px < -50 || px > LOGICAL_W + 50 || py < -50 || py > LOGICAL_H + 50) { first = true; continue; }
+                    if (first) { ctx.moveTo(px, py); first = false; }
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+
+            const FILLABLE_TYPES = ['circle', 'ellipse', 'rectangle', 'polygon'];
+
+            function buildToolbar() {
+                const tb = document.getElementById('toolbar');
+                if (!tb) return;
+                const rows = [[],[],[],[]];
+                for (let t of TOOLS) rows[t.row - 1] = rows[t.row - 1] || [];
+                for (let t of TOOLS) rows[t.row - 1].push(t);
+                const labels = ['函数', '几何', '构造', '动点场景'];
+                let html = '';
+                for (let ri = 0; ri < rows.length; ri++) {
+                    if (!rows[ri] || rows[ri].length === 0) continue;
+                    if (ri > 0) html += '<div style="width:100%;height:1px;background:var(--border);margin:3px 0;grid-column:1/-1;"></div>';
+                    for (let t of rows[ri]) {
+                        const cls = t.dynamic ? 'tool-btn dynamic' : 'tool-btn';
+                        html += `<button class="${cls}" data-tool="${t.id}" title="${t.label}">${t.label}</button>`;
+                    }
+                }
+                tb.innerHTML = html;
+                tb.querySelectorAll('.tool-btn').forEach(btn => {
+                    btn.addEventListener('click', function() { handleToolClick(this.getAttribute('data-tool')); });
+                });
+            }
+
+            function handleToolClick(toolId) {
+                const tool = TOOLS.find(t => t.id === toolId);
+                if (!tool) return;
+                if (tool.dynamic) {
+                    const def = DYNAMIC_DEFS[tool.type];
+                    if (def) applyDynamicDef(def);
+                } else if (tool.type === 'points') {
+                    namedPoints.push({ label: getNextPointLabel(), x: 1, y: 2, color: tool.color || '#10b981' });
+                    renderPoints();
+                    const g = createGraphicFromSpec({ type: 'points', points: [[1, 2]], color: tool.color, size: 8 });
+                    if (g) { addGraphic(g, true); redraw(); }
+                    showToast('已添加点 ' + namedPoints[namedPoints.length - 1].label, 'success');
+                } else {
+                    const spec = buildSpecFromTool(tool);
+                    if (spec) { addGraphic(spec, true); redraw(); showToast('已添加: ' + tool.label, 'success'); }
+                }
+            }
+
+            let nextPointIndex = 0;
+            function getNextPointLabel() {
+                const used = new Set(namedPoints.map(p => p.label));
+                const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                for (let i = 0; i < 26; i++) { if (!used.has(letters[i])) return letters[i]; }
+                return 'P' + (++nextPointIndex);
+            }
+
+            function buildSpecFromTool(tool) {
+                const t = tool.type;
+                if (t === 'rect') return { type: 'rectangle', x: tool.x, y: tool.y, w: tool.w, h: tool.h, color: tool.color, lineWidth: tool.lineWidth, fill: tool.fill };
+                if (t === 'tri') return { type: 'polygon', points: tool.points, color: tool.color, lineWidth: tool.lineWidth, fill: tool.fill };
+                if (t === 'ellipse') return { type: 'ellipse', cx: tool.params.cx, cy: tool.params.cy, rx: tool.params.rx, ry: tool.params.ry, color: tool.color, lineWidth: tool.lineWidth, fill: tool.fill };
+                if (t === 'circle') return { type: 'circle', params: tool.params, color: tool.color, lineWidth: tool.lineWidth, fill: tool.fill };
+                if (t === 'segment' || t === 'ray') return { type: t, points: tool.points, color: tool.color, lineWidth: tool.lineWidth };
+                if (t === 'points') return { type: 'points', points: tool.points, color: tool.color, size: tool.size || 8 };
+                return { type: t, params: tool.params, color: tool.color, lineWidth: tool.lineWidth };
+            }
+
+            function applyDynamicDef(def) {
+                stopAllAnimations();
+                const sDef = def.slider;
+                const existing = sliders.find(s => s.name === sDef.name);
+                if (existing) {
+                    existing.min = sDef.min; existing.max = sDef.max; existing.step = sDef.step;
+                    existing.value = sDef.value; existing.playing = false;
+                } else {
+                    sliders.push({ name: sDef.name, min: sDef.min, max: sDef.max, step: sDef.step, value: sDef.value, playing: false, speed: 1, direction: 1 });
+                }
+                namedPoints = [];
+                for (let gSpec of def.graphics) {
+                    if (gSpec.type === 'namedPoint') {
+                        if (!namedPoints.find(p => p.label === gSpec.label)) {
+                            namedPoints.push({ label: gSpec.label, x: gSpec.x, y: gSpec.y, color: gSpec.color || '#6366f1' });
+                            const ptG = createGraphicFromSpec({ type: 'points', points: [[gSpec.x, gSpec.y]], color: gSpec.color, size: 7 });
+                            if (ptG) { addGraphic(ptG, true); }
+                        }
+                    } else {
+                        addGraphic(gSpec, true);
+                    }
+                }
+                renderPoints();
+                renderSliders();
+                redraw();
+                showToast('已加载: ' + def.label, 'success');
+            }
+
+            // ========= Named Points & Connection =========
+            function renderPoints() {
+                const container = document.getElementById('pointList');
+                if (!container) return;
+                if (namedPoints.length === 0) {
+                    container.innerHTML = '<span class="func-empty">点击工具添加点</span>';
+                    return;
+                }
+                let html = '';
+                const params = getSliderParams();
+                for (let p of namedPoints) {
+                    const sel = selectedPoints.includes(p) ? ' selected' : '';
+                    const cls = 'point-badge' + sel;
+                    html += `<span class="${cls}" data-label="${p.label}" title="(${p.x.toFixed(2)}, ${p.y.toFixed(2)})">${p.label}</span>`;
+                }
+                container.innerHTML = html;
+                container.querySelectorAll('.point-badge').forEach(badge => {
+                    badge.addEventListener('click', function() { selectPoint(this.getAttribute('data-label')); });
+                });
+            }
+
+            function selectPoint(label) {
+                const pt = namedPoints.find(p => p.label === label);
+                if (!pt) return;
+                if (selectedPoints.includes(pt)) {
+                    selectedPoints = selectedPoints.filter(p => p !== pt);
+                } else {
+                    selectedPoints.push(pt);
+                    if (selectedPoints.length > 2) selectedPoints.shift();
+                }
+                renderPoints();
+            }
+
+            function connectPoints(connType) {
+                if (selectedPoints.length < 2) {
+                    showToast('请先选中2个点', 'error');
+                    return;
+                }
+                const p1 = selectedPoints[0];
+                const p2 = selectedPoints[1];
+                const isDyn1 = isDynamicPoint(p1);
+                const isDyn2 = isDynamicPoint(p2);
+
+                if (connType === 'segment' || connType === 'ray') {
+                    if (isDyn1 || isDyn2) {
+                        const xExpr1 = isDyn1 ? getPointExpr(p1) : p1.x.toString();
+                        const yExpr1 = isDyn1 ? getPointExpr(p1, false) : p1.y.toString();
+                        const xExpr2 = isDyn2 ? getPointExpr(p2) : p2.x.toString();
+                        const yExpr2 = isDyn2 ? getPointExpr(p2, false) : p2.y.toString();
+                        const color = connType === 'ray' ? '#ef4444' : '#f59e0b';
+                        const g = createGraphicFromSpec({
+                            type: 'paramConn',
+                            xExpr1, yExpr1, xExpr2, yExpr2,
+                            color, lineWidth: 2, connType: connType
+                        });
+                        if (g) { addGraphic(g, true); redraw(); }
+                    } else {
+                        const color = connType === 'ray' ? '#ef4444' : '#f59e0b';
+                        const g = createGraphicFromSpec({
+                            type: connType, points: [[p1.x, p1.y], [p2.x, p2.y]], color, lineWidth: 2
+                        });
+                        if (g) { addGraphic(g, true); redraw(); }
+                    }
+                } else if (connType === 'line') {
+                    if (isDyn1 || isDyn2) {
+                        const xExpr1 = isDyn1 ? getPointExpr(p1) : p1.x.toString();
+                        const yExpr1 = isDyn1 ? getPointExpr(p1, false) : p1.y.toString();
+                        const xExpr2 = isDyn2 ? getPointExpr(p2) : p2.x.toString();
+                        const yExpr2 = isDyn2 ? getPointExpr(p2, false) : p2.y.toString();
+                        const g = createGraphicFromSpec({
+                            type: 'paramConn', xExpr1, yExpr1, xExpr2, yExpr2,
+                            color: '#6366f1', lineWidth: 2, connType: 'line'
+                        });
+                        if (g) { addGraphic(g, true); redraw(); }
+                    } else {
+                        const k = (p2.y - p1.y) / (p2.x - p1.x);
+                        const b = p1.y - k * p1.x;
+                        const g = createGraphicFromSpec({
+                            type: 'line', params: { k: isFinite(k) ? k : 0, b: isFinite(b) ? b : 0 },
+                            color: '#6366f1', lineWidth: 2
+                        });
+                        if (g) { addGraphic(g, true); redraw(); }
+                    }
+                }
+                const names = connType === 'segment' ? '线段' : connType === 'line' ? '直线' : '射线';
+                showToast(`已连接: ${p1.label}→${p2.label} (${names})`, 'success');
+            }
+
+            function isDynamicPoint(pt) {
+                return pt.isDynamic === true;
+            }
+
+            function getPointExpr(pt, isX) {
+                if (pt.exprX && pt.exprY) return isX !== false ? pt.exprX : pt.exprY;
+                return isX !== false ? pt.x.toString() : pt.y.toString();
+            }
+
+            // ========= Toast =========
+            function showToast(message, type = 'info') {
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                const iconSvg = type === 'success'
+                    ? '<svg class="toast-icon success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+                    : type === 'error'
+                    ? '<svg class="toast-icon error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+                    : '<svg class="toast-icon info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+                toast.innerHTML = iconSvg + '<span>' + message + '</span>';
+                container.appendChild(toast);
+                setTimeout(() => {
+                    toast.classList.add('leaving');
+                    setTimeout(() => toast.remove(), 300);
+                }, 2500);
+            }
+
+            // ========= Theme =========
+            function loadTheme() {
+                const saved = localStorage.getItem(THEME_KEY);
+                if (saved === 'light') {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                    updateThemeIcon(false);
+                } else {
+                    updateThemeIcon(true);
+                }
+            }
+
+            function toggleTheme() {
+                const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                if (isDark) {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                    localStorage.setItem(THEME_KEY, 'light');
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    localStorage.setItem(THEME_KEY, 'dark');
+                }
+                updateThemeIcon(!isDark);
+                redraw();
+            }
+
+            function updateThemeIcon(isDark) {
+                const btn = document.getElementById('themeToggle');
+                if (isDark) {
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
+                } else {
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+                }
+            }
+
+            // ========= Canvas Empty Hint =========
+            function updateEmptyHint() {
+                const hint = document.getElementById('canvasEmptyHint');
+                if (!hint) return;
+                graphics.length > 0 ? hint.classList.add('hidden') : hint.classList.remove('hidden');
+            }
+
+            // ========= Settings =========
+            function loadSettings() {
+                const savedModel = localStorage.getItem(MODEL_KEY);
+                if (savedModel === 'deepseek-v4-pro' || savedModel === 'deepseek-v4-flash') currentModel = savedModel;
+                const savedThink = localStorage.getItem(DEEPTHINK_KEY);
+                if (savedThink === 'true') deepThinkEnabled = true;
+                else if (savedThink === 'false') deepThinkEnabled = false;
+                updateModelButtons();
+                updateDeepThinkButton();
+            }
+
+            function saveModelSetting() { localStorage.setItem(MODEL_KEY, currentModel); }
+            function saveDeepThinkSetting() { localStorage.setItem(DEEPTHINK_KEY, deepThinkEnabled ? 'true' : 'false'); }
+
+            function updateModelButtons() {
+                const btnFlash = document.getElementById('btnFlash');
+                const btnPro = document.getElementById('btnPro');
+                if (currentModel === 'deepseek-v4-pro') {
+                    btnFlash.classList.remove('active');
+                    btnPro.classList.add('active');
+                } else {
+                    btnFlash.classList.add('active');
+                    btnPro.classList.remove('active');
+                }
+            }
+
+            function updateDeepThinkButton() {
+                const btn = document.getElementById('btnDeepThink');
+                deepThinkEnabled ? btn.classList.add('active') : btn.classList.remove('active');
+            }
+
+            // ========= Status =========
+            function setStatus(text, type = 'idle') {
+                document.getElementById("statusMsg").innerText = text;
+                document.getElementById("statusDot").className = 'status-dot' + (type !== 'idle' ? ' ' + type : '');
+            }
+
+            // ========= Coordinate Conversion =========
+            function updateZoomDisplay() {
+                let zoom = 12.0 / (xMax - xMin);
+                document.getElementById("zoomLevel").innerText = zoom.toFixed(1);
+            }
+
+            function worldToPixel(xWorld, yWorld) {
+                return {
+                    px: (xWorld - xMin) / (xMax - xMin) * LOGICAL_W,
+                    py: LOGICAL_H - (yWorld - yMin) / (yMax - yMin) * LOGICAL_H
+                };
+            }
+
+            function pixelToWorld(px, py) {
+                return {
+                    x: xMin + (px / LOGICAL_W) * (xMax - xMin),
+                    y: yMin + ((LOGICAL_H - py) / LOGICAL_H) * (yMax - yMin)
+                };
+            }
+
+            function getAdaptiveStep() {
+                let rangeX = xMax - xMin;
+                if (rangeX > 24) return 4.0;
+                if (rangeX > 12) return 2.0;
+                if (rangeX < 3) return 0.5;
+                if (rangeX < 1.5) return 0.2;
+                return 1.0;
+            }
+
+            // ========= Drawing Core =========
+            function isDark() { return document.documentElement.getAttribute('data-theme') !== 'light'; }
+
+            function setDash(style) {
+                if (style && Array.isArray(style)) ctx.setLineDash(style);
+                else ctx.setLineDash([]);
+            }
+
+            function drawGridAndAxes() {
+                const dark = isDark();
+                ctx.save();
+                ctx.clearRect(0, 0, LOGICAL_W, LOGICAL_H);
+                ctx.fillStyle = dark ? '#0c0c18' : '#ffffff';
+                ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+                let step = getAdaptiveStep();
+                let startX = Math.ceil(xMin / step) * step;
+                let startY = Math.ceil(yMin / step) * step;
+
+                // Grid
+                ctx.beginPath();
+                ctx.strokeStyle = dark ? "rgba(255,255,255,0.04)" : "#f0f0f5";
+                ctx.lineWidth = 1;
+                for (let x = startX; x <= xMax; x += step) {
+                    let { px } = worldToPixel(x, 0);
+                    if (px >= 0 && px <= LOGICAL_W) { ctx.moveTo(px, 0); ctx.lineTo(px, LOGICAL_H); }
+                }
+                for (let y = startY; y <= yMax; y += step) {
+                    let { py } = worldToPixel(0, y);
+                    if (py >= 0 && py <= LOGICAL_H) { ctx.moveTo(0, py); ctx.lineTo(LOGICAL_H, py); }
+                }
+                ctx.stroke();
+
+                // Axes
+                let { px: ox, py: oy } = worldToPixel(0, 0);
+                ctx.beginPath();
+                ctx.strokeStyle = dark ? "rgba(255,255,255,0.15)" : "#d1d1d6";
+                ctx.lineWidth = 1.5;
+                ctx.moveTo(0, oy); ctx.lineTo(LOGICAL_W, oy); ctx.stroke();
+                ctx.moveTo(ox, 0); ctx.lineTo(ox, LOGICAL_H); ctx.stroke();
+
+                // Origin
+                ctx.beginPath();
+                ctx.fillStyle = dark ? "rgba(255,255,255,0.3)" : "#8e8e93";
+                ctx.arc(ox, oy, 3, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Labels
+                ctx.fillStyle = dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.18)";
+                ctx.font = '500 11px Outfit, -apple-system, sans-serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+                for (let x = startX; x <= xMax; x += step) {
+                    if (Math.abs(x) < 0.001) continue;
+                    let { px } = worldToPixel(x, 0);
+                    if (px > 20 && px < LOGICAL_W - 20) {
+                        ctx.fillText(formatNum(x), px, Math.min(Math.max(oy + 6, 6), LOGICAL_H - 16));
+                    }
+                }
+                ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+                for (let y = startY; y <= yMax; y += step) {
+                    if (Math.abs(y) < 0.001) continue;
+                    let { py } = worldToPixel(0, y);
+                    if (py > 20 && py < LOGICAL_H - 20) {
+                        ctx.fillText(formatNum(y), Math.min(Math.max(ox - 6, 30), LOGICAL_W - 6), py);
+                    }
+                }
+                ctx.restore();
+            }
+
+            function formatNum(n) {
+                if (Number.isInteger(n)) return n.toString();
+                return n.toFixed(1).replace(/\.0$/, '');
+            }
+
+            function drawSegment(p1, p2, color, lineWidth = 2.5, dash = null, alpha = 1, isHovered = false) {
+                let { px: x1, py: y1 } = worldToPixel(p1[0], p1[1]);
+                let { px: x2, py: y2 } = worldToPixel(p2[0], p2[1]);
+                ctx.beginPath();
+                ctx.globalAlpha = alpha;
+                ctx.strokeStyle = isHovered ? "#f59e0b" : color;
+                ctx.lineWidth = isHovered ? lineWidth + 1.5 : lineWidth;
+                ctx.lineCap = 'round';
+                setDash(dash);
+                ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+                ctx.stroke(); setDash(null); ctx.globalAlpha = 1;
+            }
+
+            function drawPolygon(points, color, lineWidth = 2.5, dash = null, fill = false, fillColor = null, alpha = 1, isHovered = false) {
+                if (points.length < 2) return;
+                ctx.beginPath();
+                let first = worldToPixel(points[0][0], points[0][1]);
+                ctx.moveTo(first.px, first.py);
+                for (let i = 1; i < points.length; i++) {
+                    let p = worldToPixel(points[i][0], points[i][1]);
+                    ctx.lineTo(p.px, p.py);
+                }
+                ctx.closePath();
+                ctx.globalAlpha = alpha;
+                if (fill && fillColor) { ctx.fillStyle = fillColor; ctx.fill(); }
+                ctx.strokeStyle = isHovered ? "#f59e0b" : color;
+                ctx.lineWidth = isHovered ? lineWidth + 1.5 : lineWidth;
+                ctx.lineJoin = 'round'; setDash(dash); ctx.stroke(); setDash(null); ctx.globalAlpha = 1;
+            }
+
+            function drawRectangle(x, y, w, h, color, lineWidth = 2.5, dash = null, fill = false, fillColor = null, alpha = 1, isHovered = false) {
+                let p1 = worldToPixel(x, y), p2 = worldToPixel(x + w, y + h);
+                ctx.beginPath(); ctx.rect(p1.px, p1.py, p2.px - p1.px, p2.py - p1.py);
+                ctx.globalAlpha = alpha;
+                if (fill && fillColor) { ctx.fillStyle = fillColor; ctx.fill(); }
+                ctx.strokeStyle = isHovered ? "#f59e0b" : color;
+                ctx.lineWidth = isHovered ? lineWidth + 1.5 : lineWidth;
+                setDash(dash); ctx.stroke(); setDash(null); ctx.globalAlpha = 1;
+            }
+
+            function drawEllipse(cx, cy, rx, ry, color, lineWidth = 2.5, dash = null, fill = false, fillColor = null, alpha = 1, isHovered = false) {
+                let center = worldToPixel(cx, cy);
+                let radiusX = (rx / (xMax - xMin)) * LOGICAL_W;
+                let radiusY = (ry / (yMax - yMin)) * LOGICAL_H;
+                ctx.beginPath();
+                ctx.ellipse(center.px, center.py, Math.max(radiusX, 0.1), Math.max(radiusY, 0.1), 0, 0, 2 * Math.PI);
+                ctx.globalAlpha = alpha;
+                if (fill && fillColor) { ctx.fillStyle = fillColor; ctx.fill(); }
+                ctx.strokeStyle = isHovered ? "#f59e0b" : color;
+                ctx.lineWidth = isHovered ? lineWidth + 1.5 : lineWidth;
+                setDash(dash); ctx.stroke(); setDash(null); ctx.globalAlpha = 1;
+            }
+
+            function drawPoints(points, color, size = 6, alpha = 1, isHovered = false) {
+                for (let p of points) {
+                    let { px, py } = worldToPixel(p[0], p[1]);
+                    ctx.beginPath(); ctx.globalAlpha = alpha;
+                    if (!isHovered) {
+                        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                        ctx.arc(px, py, size / 2 + 2, 0, 2 * Math.PI); ctx.fill();
+                    }
+                    ctx.fillStyle = isHovered ? "#f59e0b" : color;
+                    ctx.arc(px, py, size / 2, 0, 2 * Math.PI); ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            function drawFunctionCurve(fn, alpha = 1, isHovered = false) {
+                if (fn.type === "circle") {
+                    let { cx, cy, r } = fn.params;
+                    drawEllipse(cx, cy, r, r, fn.color, fn.lineWidth || 2.5, fn.strokeDash, fn.fill, fn.fillColor, alpha, isHovered);
+                    return;
+                }
+                if (fn.type === "line") {
+                    if (fn.isVertical) {
+                        let x = fn.params.x;
+                        let { px } = worldToPixel(x, 0);
+                        if (px >= 0 && px <= LOGICAL_W) {
+                            ctx.beginPath(); ctx.globalAlpha = alpha;
+                            ctx.strokeStyle = isHovered ? "#f59e0b" : fn.color;
+                            ctx.lineWidth = isHovered ? (fn.lineWidth || 2.5) + 1.5 : (fn.lineWidth || 2.5);
+                            setDash(fn.strokeDash); ctx.moveTo(px, 0); ctx.lineTo(px, LOGICAL_H);
+                            ctx.stroke(); setDash(null); ctx.globalAlpha = 1;
+                        }
+                        return;
+                    }
+                    let { k, b } = fn.params;
+                    let p1 = worldToPixel(xMin, k * xMin + b), p2 = worldToPixel(xMax, k * xMax + b);
+                    ctx.beginPath(); ctx.globalAlpha = alpha;
+                    ctx.strokeStyle = isHovered ? "#f59e0b" : fn.color;
+                    ctx.lineWidth = isHovered ? (fn.lineWidth || 2.5) + 1.5 : (fn.lineWidth || 2.5);
+                    ctx.lineCap = 'round'; setDash(fn.strokeDash);
+                    ctx.moveTo(p1.px, p1.py); ctx.lineTo(p2.px, p2.py);
+                    ctx.stroke(); setDash(null); ctx.globalAlpha = 1;
+                    return;
+                }
+                if (fn.type === "ray") {
+                    let p1 = worldToPixel(fn.points[0][0], fn.points[0][1]), p2 = worldToPixel(fn.points[1][0], fn.points[1][1]);
+                    let dx = p2.px - p1.px, dy = p2.py - p1.py, dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0) { dx /= dist; dy /= dist; }
+                    let endPx = p1.px + dx * 3000, endPy = p1.py + dy * 3000;
+                    ctx.beginPath(); ctx.globalAlpha = alpha;
+                    ctx.strokeStyle = isHovered ? "#f59e0b" : fn.color;
+                    ctx.lineWidth = isHovered ? (fn.lineWidth || 2.5) + 1.5 : (fn.lineWidth || 2.5);
+                    ctx.lineCap = 'round'; setDash(fn.strokeDash);
+                    ctx.moveTo(p1.px, p1.py); ctx.lineTo(endPx, endPy);
+                    ctx.stroke(); setDash(null); ctx.globalAlpha = 1;
+                    return;
+                }
+                if (fn.type === "paramConn") {
+                    const params = getSliderParams();
+                    let x1 = evaluateExpr(fn.xExpr1, params), y1 = evaluateExpr(fn.yExpr1, params);
+                    let x2 = evaluateExpr(fn.xExpr2, params), y2 = evaluateExpr(fn.yExpr2, params);
+                    if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) return;
+                    let p1 = worldToPixel(x1, y1), p2 = worldToPixel(x2, y2);
+                    if (fn.connType === 'ray') {
+                        let dx = p2.px - p1.px, dy = p2.py - p1.py, dist = Math.sqrt(dx*dx+dy*dy);
+                        if (dist > 0) { dx /= dist; dy /= dist; }
+                        p2 = { px: p1.px + dx * 3000, py: p1.py + dy * 3000 };
+                    } else if (fn.connType === 'line') {
+                        let dx = p2.px - p1.px, dy = p2.py - p1.py, dist = Math.sqrt(dx*dx+dy*dy);
+                        if (dist > 0) { dx /= dist; dy /= dist; }
+                        p2 = { px: p1.px + dx * 3000, py: p1.py + dy * 3000 };
+                        p1 = { px: p1.px - dx * 3000, py: p1.py - dy * 3000 };
+                    }
+                    ctx.beginPath(); ctx.globalAlpha = alpha;
+                    ctx.strokeStyle = fn.color; ctx.lineWidth = fn.lineWidth || 2;
+                    ctx.lineCap = 'round'; setDash(fn.strokeDash);
+                    ctx.moveTo(p1.px, p1.py); ctx.lineTo(p2.px, p2.py);
+                    ctx.stroke(); setDash(null); ctx.globalAlpha = 1;
+                    return;
+                }
+                ctx.beginPath(); ctx.globalAlpha = alpha;
+                ctx.strokeStyle = isHovered ? "#f59e0b" : fn.color;
+                ctx.lineWidth = isHovered ? (fn.lineWidth || 2.5) + 1.5 : (fn.lineWidth || 2.5);
+                ctx.lineCap = 'round'; ctx.lineJoin = 'round'; setDash(fn.strokeDash);
+                let first = true, steps = 1000;
+                for (let i = 0; i <= steps; i++) {
+                    let x = xMin + (i / steps) * (xMax - xMin);
+                    let y = fn.getY(x);
+                    if (y === undefined || !isFinite(y) || isNaN(y)) { first = true; continue; }
+                    let { px, py } = worldToPixel(x, y);
+                    if (px < 0 || px > LOGICAL_W || py < 0 || py > LOGICAL_H) { first = true; continue; }
+                    if (first) { ctx.moveTo(px, py); first = false; } else { ctx.lineTo(px, py); }
+                }
+                ctx.stroke(); setDash(null); ctx.globalAlpha = 1;
+            }
+
+            function drawAnnotations(alpha = 1) {
+                for (let ann of graphics.filter(g => g.type === "text")) {
+                    let { px, py } = worldToPixel(ann.x, ann.y);
+                    ctx.save();
+                    let fontSize = ann.fontSize || 16;
+                    ctx.font = `600 ${fontSize}px Outfit, -apple-system, sans-serif`;
+                    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                    let textWidth = ctx.measureText(ann.text).width;
+                    let padding = 8, dark = isDark();
+                    ctx.fillStyle = dark ? "rgba(12,12,24,0.92)" : "rgba(255,255,255,0.92)";
+                    ctx.beginPath();
+                    ctx.ellipse(px, py, textWidth / 2 + padding, fontSize / 2 + padding - 2, 0, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.strokeStyle = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+                    ctx.lineWidth = 1; ctx.stroke();
+                    ctx.fillStyle = ann.color || (dark ? "#e0e0f0" : "#1d1d1f");
+                    ctx.globalAlpha = alpha; ctx.fillText(ann.text, px, py);
+                    ctx.restore();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            function redraw() {
+                drawGridAndAxes();
+                ctx.save();
+                for (let g of graphics) {
+                    let alpha = g.alpha !== undefined ? g.alpha : 1;
+                    let isHovered = (currentHoverGraphic === g);
+                    if (g.type === "segment") drawSegment(g.points[0], g.points[1], g.color, g.lineWidth || 2.5, g.strokeDash, alpha, isHovered);
+                    else if (g.type === "polygon") drawPolygon(g.points, g.color, g.lineWidth || 2.5, g.strokeDash, g.fill, g.fillColor, alpha, isHovered);
+                    else if (g.type === "rectangle") drawRectangle(g.x, g.y, g.w, g.h, g.color, g.lineWidth || 2.5, g.strokeDash, g.fill, g.fillColor, alpha, isHovered);
+                    else if (g.type === "ellipse") drawEllipse(g.cx, g.cy, g.rx, g.ry, g.color, g.lineWidth || 2.5, g.strokeDash, g.fill, g.fillColor, alpha, isHovered);
+                    else if (g.type === "points") drawPoints(g.points, g.color, g.size || 6, alpha, isHovered);
+                    else if (g.type === "paramPoint") drawParamPoint(g, alpha);
+                    else if (g.type === "paramCurve") drawParamCurve(g, alpha);
+                    else if (g.type === "text") {} else drawFunctionCurve(g, alpha, isHovered);
+                }
+                drawAnnotations();
+                ctx.restore();
+                updateFunctionListUI();
+                updateZoomDisplay();
+                updateEmptyHint();
+            }
+
+            function redrawWithAlpha() { redraw(); }
+
+            // ========= Graphic Description =========
+            function getGraphicDescription(g) {
+                switch (g.type) {
+                    case "circle": return `圆(圆心(${g.params.cx},${g.params.cy}) 半径${g.params.r})`;
+                    case "ellipse": return `椭圆(中心(${g.cx},${g.cy}) rx=${g.rx} ry=${g.ry})`;
+                    case "rectangle": return `矩形(x=${g.x} y=${g.y} 宽${g.w} 高${g.h})`;
+                    case "polygon":
+                        let n = g.points.length;
+                        let sn = { 3: '三角形', 4: '四边形', 5: '五边形', 6: '六边形' };
+                        return `${sn[n] || n + '边形'}(顶点${JSON.stringify(g.points)})`;
+                    case "segment": return `线段(${JSON.stringify(g.points[0])}→${JSON.stringify(g.points[1])})`;
+                    case "ray": return `射线(${JSON.stringify(g.points[0])}→${JSON.stringify(g.points[1])})`;
+                    case "paramConn": return `连线(${g.xExpr1},${g.yExpr1})→(${g.xExpr2},${g.yExpr2})`;
+                    case "points": return `散点(${g.points.length}个点)`;
+                    case "line": return g.isVertical ? `垂直线(x=${g.params.x})` : `直线(y=${g.params.k}x+${g.params.b})`;
+                    case "sin": return `正弦曲线(y=${g.params.A||1}·sin(${g.params.B||1}x+${g.params.C||0})+${g.params.D||0})`;
+                    case "cos": return `余弦曲线(y=${g.params.A||1}·cos(${g.params.B||1}x+${g.params.C||0})+${g.params.D||0})`;
+                    case "quadratic": return `抛物线(y=${g.params.a||1}x²+${g.params.b||0}x+${g.params.c||0})`;
+                    case "inverse": return `反比例(y=${g.params.k||1}/x)`;
+                    case "text": return `文字"${g.text}"@(${g.x},${g.y})`;
+                    case "paramPoint": return `动点((${g.xExpr},${g.yExpr}) 标签:${g.label||''})`;
+                    case "paramCurve": return `参数曲线(x(t)=${g.xExpr}, y(t)=${g.yExpr})`;
+                    default: return g.type;
+                }
+            }
+
+            function getGraphicShortLabel(g) {
+                switch (g.type) {
+                    case "circle": return `圆 r${g.params.r}`;
+                    case "polygon":
+                        let n = g.points.length;
+                        let sn = { 3: '△', 4: '□', 5: '五边形', 6: '六边形' };
+                        return sn[n] || n + '边形';
+                    case "line": return g.isVertical ? `垂线x=${g.params.x}` : '直线';
+                    case "sin": return '正弦';
+                    case "cos": return '余弦';
+                    case "quadratic": return '抛物线';
+                    case "inverse": return '反比例';
+                    case "ellipse": return '椭圆';
+                    case "rectangle": return '矩形';
+                    case "segment": return '线段';
+                    case "ray": return '射线';
+                    case "paramConn": return '连线';
+                    case "points": return '散点';
+                    case "text": return '文字';
+                    case "paramPoint": return '动点·' + (g.label || 'P');
+                    case "paramCurve": return '参数曲线';
+                    default: return g.type;
+                }
+            }
+
+            // ========= Graphics Context =========
+            function buildGraphicsContext() {
+                let lines = ["[当前画布图形列表 - 可使用delete指令删除指定id的图形]"];
+                if (graphics.length === 0) {
+                    lines.push("  (暂无图形)");
+                } else {
+                    for (let g of graphics) {
+                        let desc = getGraphicDescription(g);
+                        let fillInfo = '';
+                        if (g.fill !== undefined) fillInfo = ` 填充:${g.fill ? '是' : '否'}`;
+                        if (g.strokeDash && Array.isArray(g.strokeDash) && g.strokeDash.length > 0) fillInfo += ' 虚线:是';
+                        lines.push(`  id:${g.id} 类型:${g.type} ${desc} 颜色:${g.color}${fillInfo}`);
+                    }
+                }
+                if (sliders.length > 0) {
+                    lines.push('[当前滑动条状态]');
+                    for (let s of sliders) {
+                        lines.push(`  变量${s.name} ∈ [${s.min}, ${s.max}] 当前值=${s.value.toFixed(3)} 步长=${s.step}`);
+                    }
+                    lines.push('动点(paramPoint)的参数方程(xExpr, yExpr)中可使用这些变量名');
+                }
+                return lines.join('\n');
+            }
+
+            // ========= Graphic Construction =========
+            function createGraphicFromSpec(spec) {
+                let id = Date.now() + Math.random();
+                let { type, params = {}, color = "#6366f1", expression, points, x, y, w, h, cx, cy, rx, ry, lineWidth, strokeDash, fill, fillColor, size } = spec;
+                if (type === "line") {
+                    if (params.x !== undefined && params.k === undefined) return { id, type, params: { x: params.x }, color, expression, isVertical: true, getY: null, lineWidth, strokeDash };
+                    else if (params.k !== undefined && params.b !== undefined) {
+                        let getY = (x) => params.k * x + params.b;
+                        return { id, type, params, color, expression, getY, isVertical: false, lineWidth, strokeDash };
+                    } else return null;
+                } else if (type === "circle") {
+                    if (params.cx === undefined || params.cy === undefined || params.r === undefined) return null;
+                    return { id, type, params, color, expression, getY: null, lineWidth, strokeDash, fill, fillColor };
+                } else if (type === "ellipse") {
+                    if (cx === undefined || cy === undefined || rx === undefined || ry === undefined) return null;
+                    return { id, type, cx, cy, rx, ry, color, lineWidth, strokeDash, fill, fillColor };
+                } else if (type === "rectangle") {
+                    if (x === undefined || y === undefined || w === undefined || h === undefined) return null;
+                    return { id, type, x, y, w, h, color, lineWidth, strokeDash, fill, fillColor };
+                } else if (type === "points") {
+                    if (!points || !Array.isArray(points)) return null;
+                    return { id, type, points, color, size };
+                } else if (type === "quadratic" || type === "inverse" || type === "sin" || type === "cos" || type === "exp" || type === "log" || type === "abs") {
+                    let getY = null;
+                    try {
+                        if (type === "quadratic") { let { a = 1, b = 0, c = 0 } = params; getY = (x) => a * x * x + b * x + c; }
+                        else if (type === "inverse") { let { k = 1 } = params; getY = (x) => (x === 0 ? undefined : k / x); }
+                        else if (type === "sin") { let { A = 1, B = 1, C = 0, D = 0 } = params; getY = (x) => A * Math.sin(B * x + C) + D; }
+                        else if (type === "cos") { let { A = 1, B = 1, C = 0, D = 0 } = params; getY = (x) => A * Math.cos(B * x + C) + D; }
+                        else if (type === "exp") { let { a = 1, b = 1 } = params; getY = (x) => a * Math.exp(b * x); }
+                        else if (type === "log") { let { base = Math.E, a = 1 } = params; getY = (x) => (x > 0 ? a * Math.log(x) / Math.log(base) : undefined); }
+                        else if (type === "abs") { let { a = 1, b = 0, c = 0 } = params; getY = (x) => a * Math.abs(x - b) + c; }
+                    } catch (e) { return null; }
+                    return { id, type, params, color, expression, getY, lineWidth, strokeDash };
+                } else if (type === "segment") {
+                    if (points && points.length === 2) return { id, type, points, color, lineWidth, strokeDash };
+                    return null;
+                } else if (type === "ray") {
+                    if (points && points.length === 2) return { id, type, points, color, lineWidth, strokeDash };
+                    return null;
+                } else if (type === "paramConn") {
+                    if (!spec.xExpr1 || !spec.yExpr1 || !spec.xExpr2 || !spec.yExpr2) return null;
+                    return { id, type, xExpr1: spec.xExpr1, yExpr1: spec.yExpr1, xExpr2: spec.xExpr2, yExpr2: spec.yExpr2, color, lineWidth, strokeDash, connType: spec.connType || 'segment' };
+                } else if (type === "polygon") {
+                    if (points && points.length >= 3) return { id, type, points, color, lineWidth, strokeDash, fill, fillColor };
+                    return null;
+                } else if (type === "text") {
+                    if (!spec.text) return null;
+                    return { id, type, text: spec.text, x: spec.x || 0, y: spec.y || 0, color: spec.color || "#e0e0f0", fontSize: spec.fontSize || 16 };
+                } else if (type === "paramPoint") {
+                    if (!spec.xExpr || !spec.yExpr) return null;
+                    return { id, type, xExpr: spec.xExpr, yExpr: spec.yExpr, color, size: spec.size || 8, label: spec.label || '', trail: spec.trail || false, lineWidth: spec.lineWidth };
+                } else if (type === "paramCurve") {
+                    if (!spec.xExpr || !spec.yExpr) return null;
+                    return { id, type, xExpr: spec.xExpr, yExpr: spec.yExpr, color, lineWidth: spec.lineWidth || 2, tMin: spec.tMin, tMax: spec.tMax };
+                } else if (type === "namedPoint") {
+                    return createGraphicFromSpec({ type: 'points', points: [[spec.x || 0, spec.y || 0]], color: spec.color || '#10b981', size: 7 });
+                }
+                return null;
+            }
+
+            function addGraphic(spec) {
+                let g = createGraphicFromSpec(spec);
+                if (!g) { setStatus("图形格式无效", "error"); return; }
+                g.alpha = 0;
+                graphics.push(g);
+                let start = performance.now();
+                function fadeIn(time) {
+                    let t = Math.min((time - start) / 400, 1);
+                    g.alpha = 1 - Math.pow(1 - t, 3);
+                    redrawWithAlpha();
+                    if (t < 1) requestAnimationFrame(fadeIn);
+                    else { g.alpha = 1; redraw(); }
+                }
+                requestAnimationFrame(fadeIn);
+            }
+
+            function deleteGraphicById(id) {
+                let idx = graphics.findIndex(g => g.id === id);
+                if (idx === -1) return;
+                let g = graphics[idx];
+                let start = performance.now();
+                function fadeOut(time) {
+                    let t = Math.min((time - start) / 300, 1);
+                    g.alpha = 1 - t;
+                    redrawWithAlpha();
+                    if (t < 1) requestAnimationFrame(fadeOut);
+                    else { graphics.splice(idx, 1); redraw(); }
+                }
+                requestAnimationFrame(fadeOut);
+            }
+
+            function deleteAll() {
+                if (graphics.length === 0 && sliders.length === 0 && namedPoints.length === 0) return;
+                stopAllAnimations();
+                sliders = [];
+                graphics = [];
+                namedPoints = [];
+                selectedPoints = [];
+                renderSliders();
+                renderPoints();
+                redraw();
+                showToast('画布已清空', 'success');
+            }
+
+            function animateViewChange(targetXMin, targetXMax, targetYMin, targetYMax, duration = 400) {
+                const startXMin = xMin, startXMax = xMax, startYMin = yMin, startYMax = yMax;
+                const startTime = performance.now();
+                function step(time) {
+                    let t = Math.min((time - startTime) / duration, 1);
+                    let ease = 1 - Math.pow(1 - t, 3);
+                    xMin = startXMin + (targetXMin - startXMin) * ease;
+                    xMax = startXMax + (targetXMax - startXMax) * ease;
+                    yMin = startYMin + (targetYMin - startYMin) * ease;
+                    yMax = startYMax + (targetYMax - startYMax) * ease;
+                    redraw();
+                    if (t < 1) requestAnimationFrame(step);
+                }
+                if (animFrameId) cancelAnimationFrame(animFrameId);
+                animFrameId = requestAnimationFrame(step);
+            }
+
+            function zoom(factor, animated = true) {
+                let cx = (xMin + xMax) / 2, cy = (yMin + yMax) / 2;
+                let newW = Math.min(Math.max((xMax - xMin) * factor, 0.01), 500);
+                let newH = Math.min(Math.max((yMax - yMin) * factor, 0.01), 500);
+                if (animated) animateViewChange(cx - newW / 2, cx + newW / 2, cy - newH / 2, cy + newH / 2);
+                else { xMin = cx - newW / 2; xMax = cx + newW / 2; yMin = cy - newH / 2; yMax = cy + newH / 2; redraw(); }
+            }
+
+            function fitToAllGraphics(animated = true) {
+                if (graphics.length === 0) {
+                    if (animated) animateViewChange(DEFAULT.xMin, DEFAULT.xMax, DEFAULT.yMin, DEFAULT.yMax);
+                    else { xMin = DEFAULT.xMin; xMax = DEFAULT.xMax; yMin = DEFAULT.yMin; yMax = DEFAULT.yMax; redraw(); }
+                    return;
+                }
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                for (let g of graphics) {
+                    if (g.type === "circle") { let { cx, cy, r } = g.params; minX = Math.min(minX, cx - r); maxX = Math.max(maxX, cx + r); minY = Math.min(minY, cy - r); maxY = Math.max(maxY, cy + r); }
+                    else if (g.type === "ellipse") { minX = Math.min(minX, g.cx - g.rx); maxX = Math.max(maxX, g.cx + g.rx); minY = Math.min(minY, g.cy - g.ry); maxY = Math.max(maxY, g.cy + g.ry); }
+                    else if (g.type === "rectangle") { minX = Math.min(minX, g.x); maxX = Math.max(maxX, g.x + g.w); minY = Math.min(minY, g.y); maxY = Math.max(maxY, g.y + g.h); }
+                    else if (g.type === "points") { for (let p of g.points) { minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); } }
+                    else if (g.type === "segment" || g.type === "polygon") { for (let p of g.points) { minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); } }
+                    else if (g.type === "text") { minX = Math.min(minX, g.x); maxX = Math.max(maxX, g.x); minY = Math.min(minY, g.y); maxY = Math.max(maxY, g.y); }
+                    else if (g.getY) { for (let x = -20; x <= 20; x += 0.2) { let y = g.getY(x); if (isFinite(y) && !isNaN(y)) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); } } }
+                    else if (g.isVertical) { minX = Math.min(minX, g.params.x); maxX = Math.max(maxX, g.params.x); }
+                }
+                if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+                    if (animated) animateViewChange(DEFAULT.xMin, DEFAULT.xMax, DEFAULT.yMin, DEFAULT.yMax);
+                    else { xMin = DEFAULT.xMin; xMax = DEFAULT.xMax; yMin = DEFAULT.yMin; yMax = DEFAULT.yMax; redraw(); }
+                    return;
+                }
+                // Maintain 1:1 aspect ratio
+                let rangeX = maxX - minX, rangeY = maxY - minY;
+                let range = Math.max(rangeX, rangeY) * 1.15 || 1;
+                let centerX = (minX + maxX) / 2;
+                let centerY = (minY + maxY) / 2;
+                let half = range / 2;
+                animateViewChange(centerX - half, centerX + half, centerY - half, centerY + half);
+            }
+
+            function resetView(animated = true) {
+                if (animated) animateViewChange(DEFAULT.xMin, DEFAULT.xMax, DEFAULT.yMin, DEFAULT.yMax);
+                else { xMin = DEFAULT.xMin; xMax = DEFAULT.xMax; yMin = DEFAULT.yMin; yMax = DEFAULT.yMax; redraw(); }
+            }
+
+            // ========= Save PNG =========
+            function saveCanvasAsPNG() {
+                const saveBtn = document.getElementById('saveBtn');
+                const prevHover = currentHoverGraphic;
+                currentHoverGraphic = null;
+                const savedTrails = [];
+                for (let g of graphics) {
+                    if (g.type === 'paramPoint' && g.trail && g._trail) {
+                        savedTrails.push({ g, trail: [...g._trail] });
+                        g._trail = [];
+                    }
+                }
+                redraw();
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const filename = `hatscope_${timestamp}.png`;
+                const restoreTrails = () => {
+                    for (let st of savedTrails) st.g._trail = st.trail;
+                    currentHoverGraphic = prevHover;
+                    redraw();
+                };
+                if (canvas.toBlob) {
+                    canvas.toBlob((blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = filename;
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        flashSaveButton(saveBtn);
+                        restoreTrails();
+                    }, 'image/png');
+                } else {
+                    const dataURL = canvas.toDataURL('image/png');
+                    const a = document.createElement('a');
+                    a.href = dataURL; a.download = filename;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    flashSaveButton(saveBtn);
+                    restoreTrails();
+                }
+            }
+
+            function flashSaveButton(btn) {
+                btn.classList.add('save-flash');
+                showToast('图片已保存', 'success');
+                setTimeout(() => btn.classList.remove('save-flash'), 1500);
+            }
+
+            // ========= System Prompt =========
+            const SYSTEM_PROMPT = `你是一个数学绘图助手。坐标系范围 x∈[-6,6], y∈[-6,6]。
+你必须只返回纯JSON对象或JSON数组，格式如下：
+{"action":"add","functions":[{"type":"sin","params":{"A":1,"B":1,"C":0,"D":0},"color":"#6366f1","lineWidth":2.5}]}
+
+支持的类型及完整示例：
+- sin: {"type":"sin","params":{"A":1,"B":1,"C":0,"D":0},"color":"blue"}
+- cos: {"type":"cos","params":{"A":1,"B":1,"C":0,"D":0},"color":"green"}
+- line (斜线): {"type":"line","params":{"k":0.5,"b":1},"color":"red"}
+- line (垂直线): {"type":"line","params":{"x":2},"color":"gray","strokeDash":[5,5]}
+- quadratic: {"type":"quadratic","params":{"a":1,"b":0,"c":0},"color":"#6366f1"}
+- inverse: {"type":"inverse","params":{"k":1},"color":"purple"}
+- circle: {"type":"circle","params":{"cx":0,"cy":0,"r":3},"color":"orange","fill":true,"fillColor":"rgba(255,165,0,0.2)"}
+- ellipse: {"type":"ellipse","cx":0,"cy":0,"rx":4,"ry":2,"color":"teal"}
+- rectangle: {"type":"rectangle","x":-2,"y":1,"w":4,"h":2,"color":"brown","fill":true,"fillColor":"rgba(139,69,19,0.2)"}
+- points: {"type":"points","points":[[1,2],[2,3],[3,1]],"color":"black","size":8}
+- segment: {"type":"segment","points":[[-1,0],[2,3]],"color":"magenta","lineWidth":3}
+- ray (射线): {"type":"ray","points":[[0,0],[2,3]],"color":"red","lineWidth":2.5}
+- polygon: {"type":"polygon","points":[[0,0],[2,1],[1,3],[-1,2]],"color":"blue","fill":true,"fillColor":"rgba(0,0,255,0.2)"}
+- text: {"type":"text","text":"Hello","x":1,"y":2,"color":"#333","fontSize":18}
+- paramPoint (动点): {"type":"paramPoint","xExpr":"t","yExpr":"t*t","color":"red","size":10,"label":"P","trail":true}
+  xExpr和yExpr是参数表达式，可使用滑动条变量名（如t）。trail为true时显示运动轨迹。
+- paramCurve (参数曲线): {"type":"paramCurve","xExpr":"3*cos(t)","yExpr":"2*sin(t)","color":"blue","lineWidth":2,"tMin":0,"tMax":6.2832}
+  绘制参数曲线，t从tMin到tMax采样。
+- paramConn (点间连线): {"type":"paramConn","xExpr1":"-3+6*t","yExpr1":"-1.5+3.5*t","xExpr2":"0","yExpr2":"0","color":"orange","lineWidth":2,"connType":"segment"}
+  connType可以是segment(线段)、line(直线)、ray(射线)。用于连接动点和定点/动点。
+
+重要规则：
+- 修改已有图形时，必须先使用delete指令删除原图形，再使用add创建新图形。delete格式：{"action":"delete","targets":[图形ID]}
+- delete_all格式：{"action":"delete_all"}
+- 用户消息末尾会附带当前画布上的图形列表（含ID、类型、描述、颜色、填充状态）和滑动条状态，请仔细阅读以确定要删除哪个图形。
+- 如果用户说"将三角形改为不填充"，你需要：1)找到三角形图形的id 2)发出delete删除它 3)发出add创建一个相同顶点但不填充的新三角形。
+- 一次可以返回多个操作，例如：[{"action":"delete","targets":[123]},{"action":"add","functions":[...]}]
+- 先delete再add，确保顺序正确。
+- 动点问题：用户说"线段AB上动点"时，应添加线段AB和paramPoint(位置用t插值A、B)，告知用户需手动添加滑动条t(0到1)。
+
+可选参数："strokeDash":[5,5] 表示虚线，"fill":true, "fillColor":"rgba(99,102,241,0.3)"。
+请严格返回JSON，不要额外解释。`;
+
+            function extractJSON(text) {
+                let cleaned = text.replace(/```json\s*|```\s*/gi, '').trim();
+                let match = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+                if (match) { try { return JSON.parse(match[0]); } catch (e) { return null; } }
+                return null;
+            }
+
+            async function fetchAI(messages, onDelta) {
+                const bodyObj = {
+                    model: currentModel,
+                    messages: messages,
+                    stream: true,
+                    temperature: 0.2,
+                };
+                if (deepThinkEnabled) bodyObj.thinking = { type: 'enabled' };
+                else bodyObj.thinking = { type: 'disabled' };
+
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
+                    body: JSON.stringify(bodyObj),
+                });
+                if (!response.ok) throw new Error("API请求失败: " + response.status);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "", fullReasoning = "", fullContent = "";
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop();
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            const data = line.slice(6);
+                            if (data === "[DONE]") continue;
+                            try {
+                                const json = JSON.parse(data);
+                                const delta = json.choices[0].delta;
+                                if (delta.reasoning_content) fullReasoning += delta.reasoning_content;
+                                if (delta.content) fullContent += delta.content;
+                                if (onDelta) onDelta(fullReasoning, fullContent);
+                            } catch (e) {}
+                        }
+                    }
+                }
+                return { fullContent, reasoning: fullReasoning };
+            }
+
+            let conversationHistory = [{ role: "system", content: SYSTEM_PROMPT }];
+
+            async function sendToAI(userMessage, isRetry = false) {
+                if (!API_KEY) { setStatus("密钥未加载", "error"); return; }
+                const thinkingDiv = document.getElementById("thinkingBox");
+                setStatus(deepThinkEnabled ? "深度思考中..." : "思考中...", "thinking");
+                thinkingDiv.innerHTML = "";
+                thinkingDiv.classList.add("visible");
+
+                const graphicsContext = buildGraphicsContext();
+                const augmentedMessage = userMessage + "\n\n" + graphicsContext;
+                let messages = [...conversationHistory, { role: "user", content: augmentedMessage }];
+
+                try {
+                    let finalContent = "", finalReasoning = "";
+                    const result = await fetchAI(messages, (reasoning, content) => {
+                        finalReasoning = reasoning; finalContent = content;
+                        updateThinkingBox(thinkingDiv, reasoning, content);
+                    });
+                    finalContent = result.fullContent;
+                    finalReasoning = result.reasoning;
+
+                    let parsed = extractJSON(finalContent);
+                    if (!parsed && !isRetry) {
+                        setStatus("格式修正中...", "thinking");
+                        const retryMessages = [
+                            { role: "system", content: SYSTEM_PROMPT },
+                            { role: "assistant", content: finalContent },
+                            { role: "user", content: "请将上述内容转换为纯JSON格式。" },
+                        ];
+                        return retryWithMessages(retryMessages);
+                    }
+                    if (!parsed) throw new Error("解析失败，无法提取JSON");
+
+                    let operations = Array.isArray(parsed) ? parsed : [parsed];
+                    processOperations(operations);
+                    setStatus("完成", "idle");
+                    showToast('绘图完成', 'success');
+
+                    conversationHistory.push({ role: "user", content: augmentedMessage }, { role: "assistant", content: finalContent });
+                    if (conversationHistory.length > 22) conversationHistory.splice(1, 2);
+                } catch (err) {
+                    setStatus("请求失败", "error");
+                    thinkingDiv.innerHTML = `<span style="color:var(--danger);">${err.message}</span>`;
+                    showToast('请求失败: ' + err.message, 'error');
+                }
+            }
+
+            function updateThinkingBox(thinkingDiv, reasoning, content) {
+                let html = '';
+                if (reasoning && reasoning.trim()) {
+                    html += '<div class="reasoning-section"><div class="section-label">深度思考过程</div>' + escapeHTML(reasoning) + '</div>';
+                }
+                if (content && content.trim()) {
+                    html += '<div class="content-section"><div class="section-label">回复</div>' + escapeHTML(content) + '</div>';
+                }
+                if (!html && deepThinkEnabled) html = '<span style="color:var(--text-tertiary);">等待深度思考...</span>';
+                else if (!html) html = '<span style="color:var(--text-tertiary);">等待回复...</span>';
+                thinkingDiv.innerHTML = html;
+                thinkingDiv.scrollTop = thinkingDiv.scrollHeight;
+            }
+
+            function escapeHTML(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            function processOperations(operations) {
+                let toDeleteIds = [];
+                let shouldDeleteAll = false;
+                let toAdd = [];
+
+                for (let cmd of operations) {
+                    if (cmd.action === "delete_all") shouldDeleteAll = true;
+                    else if (cmd.action === "delete" && cmd.targets && Array.isArray(cmd.targets)) toDeleteIds.push(...cmd.targets);
+                    else if (cmd.action === "add" && cmd.functions) toAdd.push(...cmd.functions);
+                }
+
+                if (shouldDeleteAll) {
+                    graphics = [];
+                } else {
+                    for (let id of toDeleteIds) {
+                        let idx = graphics.findIndex(g => g.id === id);
+                        if (idx !== -1) graphics.splice(idx, 1);
+                    }
+                }
+
+                for (let spec of toAdd) addGraphic(spec);
+                redraw();
+            }
+
+            async function retryWithMessages(messages) {
+                const thinkingDiv = document.getElementById("thinkingBox");
+                try {
+                    let finalContent = "", finalReasoning = "";
+                    const result = await fetchAI(messages, (reasoning, content) => {
+                        finalReasoning = reasoning; finalContent = content;
+                        updateThinkingBox(thinkingDiv, reasoning, content);
+                    });
+                    finalContent = result.fullContent;
+                    let parsed = extractJSON(finalContent);
+                    if (!parsed) throw new Error("修正后仍无法解析JSON");
+                    let operations = Array.isArray(parsed) ? parsed : [parsed];
+                    processOperations(operations);
+                    setStatus("完成", "idle");
+                } catch (err) {
+                    setStatus("修正失败", "error");
+                    thinkingDiv.innerHTML = `<span style="color:var(--danger);">${err.message}</span>`;
+                }
+            }
+
+            function updateFunctionListUI() {
+                let container = document.getElementById("functionList");
+                if (!container) return;
+                if (graphics.length === 0) {
+                    container.innerHTML = '<span class="func-empty">暂无图形</span>';
+                    return;
+                }
+                let html = "";
+                for (let g of graphics) {
+                    let label = getGraphicShortLabel(g);
+                    html += `<div class="func-badge" title="id:${g.id} | ${getGraphicDescription(g)}"><span class="color-dot" style="background:${g.color}"></span>${label}<button class="del-btn" onclick="window.hatscope.deleteGraphic(${g.id})" title="删除此图形">\u00D7</button></div>`;
+                }
+                container.innerHTML = html;
+            }
+
+            window.hatscope = { deleteGraphic: deleteGraphicById };
+
+            // ========= Interaction =========
+            function setupInteraction() {
+                let isPan = false, panStartX, panStartY, startXMin, startXMax, startYMin, startYMax;
+                canvas.addEventListener("mousedown", (e) => {
+                    let rect = canvas.getBoundingClientRect();
+                    let sx = LOGICAL_W / rect.width, sy = LOGICAL_H / rect.height;
+                    let mx = (e.clientX - rect.left) * sx, my = (e.clientY - rect.top) * sy;
+                    if (mx >= 0 && mx <= LOGICAL_W && my >= 0 && my <= LOGICAL_H) {
+                        isPan = true; panStartX = mx; panStartY = my;
+                        startXMin = xMin; startXMax = xMax; startYMin = yMin; startYMax = yMax;
+                        canvas.style.cursor = "grabbing";
+                    }
+                });
+                window.addEventListener("mousemove", (e) => {
+                    let rect = canvas.getBoundingClientRect();
+                    let sx = LOGICAL_W / rect.width, sy = LOGICAL_H / rect.height;
+                    let mx = (e.clientX - rect.left) * sx, my = (e.clientY - rect.top) * sy;
+                    if (mx >= 0 && mx <= LOGICAL_W && my >= 0 && my <= LOGICAL_H) {
+                        let { x, y } = pixelToWorld(mx, my);
+                        document.getElementById("coordX").innerText = x.toFixed(3);
+                        document.getElementById("coordY").innerText = y.toFixed(3);
+                    }
+                    if (isPan) {
+                        let dx = (panStartX - mx) / LOGICAL_W * (startXMax - startXMin);
+                        let dy = (panStartY - my) / LOGICAL_H * (startYMax - startYMin);
+                        xMin = startXMin + dx; xMax = startXMax + dx;
+                        yMin = startYMin + dy; yMax = startYMax + dy;
+                        redraw();
+                    }
+                });
+                window.addEventListener("mouseup", () => { isPan = false; canvas.style.cursor = "crosshair"; });
+
+                canvas.addEventListener("wheel", (e) => {
+                    e.preventDefault();
+                    let rect = canvas.getBoundingClientRect();
+                    let sx = LOGICAL_W / rect.width, sy = LOGICAL_H / rect.height;
+                    let mx = (e.clientX - rect.left) * sx, my = (e.clientY - rect.top) * sy;
+                    let center = pixelToWorld(mx, my);
+                    let factor = e.deltaY > 0 ? 1.1 : 0.9;
+                    let newW = Math.min(Math.max((xMax - xMin) * factor, 0.01), 500);
+                    let newH = Math.min(Math.max((yMax - yMin) * factor, 0.01), 500);
+                    let newXMin = center.x - (center.x - xMin) / (xMax - xMin) * newW;
+                    let newYMin = center.y - (center.y - yMin) / (yMax - yMin) * newH;
+                    animateViewChange(newXMin, newXMin + newW, newYMin, newYMin + newH);
+                }, { passive: false });
+
+                // Touch
+                let touchStartDist = 0, touchStartCenter = null;
+                canvas.addEventListener("touchstart", (e) => {
+                    if (e.touches.length === 1) {
+                        let rect = canvas.getBoundingClientRect();
+                        let sx = LOGICAL_W / rect.width, sy = LOGICAL_H / rect.height;
+                        panStartX = (e.touches[0].clientX - rect.left) * sx;
+                        panStartY = (e.touches[0].clientY - rect.top) * sy;
+                        isPan = true;
+                        startXMin = xMin; startXMax = xMax; startYMin = yMin; startYMax = yMax;
+                    } else if (e.touches.length === 2) {
+                        isPan = false;
+                        let dx = e.touches[0].clientX - e.touches[1].clientX;
+                        let dy = e.touches[0].clientY - e.touches[1].clientY;
+                        touchStartDist = Math.sqrt(dx * dx + dy * dy);
+                        let rect = canvas.getBoundingClientRect();
+                        let sx = LOGICAL_W / rect.width, sy = LOGICAL_H / rect.height;
+                        let cmx = ((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left) * sx;
+                        let cmy = ((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top) * sy;
+                        touchStartCenter = pixelToWorld(cmx, cmy);
+                        startXMin = xMin; startXMax = xMax; startYMin = yMin; startYMax = yMax;
+                    }
+                }, { passive: true });
+                canvas.addEventListener("touchmove", (e) => {
+                    e.preventDefault();
+                    if (e.touches.length === 1 && isPan) {
+                        let rect = canvas.getBoundingClientRect();
+                        let sx = LOGICAL_W / rect.width, sy = LOGICAL_H / rect.height;
+                        let mx = (e.touches[0].clientX - rect.left) * sx;
+                        let my = (e.touches[0].clientY - rect.top) * sy;
+                        let dx = (panStartX - mx) / LOGICAL_W * (startXMax - startXMin);
+                        let dy = (panStartY - my) / LOGICAL_H * (startYMax - startYMin);
+                        xMin = startXMin + dx; xMax = startXMax + dx;
+                        yMin = startYMin + dy; yMax = startYMax + dy;
+                        redraw();
+                    } else if (e.touches.length === 2 && touchStartCenter) {
+                        let dx = e.touches[0].clientX - e.touches[1].clientX;
+                        let dy = e.touches[0].clientY - e.touches[1].clientY;
+                        let dist = Math.sqrt(dx * dx + dy * dy);
+                        let scale = touchStartDist / dist;
+                        let newW = Math.min(Math.max((startXMax - startXMin) * scale, 0.01), 500);
+                        let newH = Math.min(Math.max((startYMax - startYMin) * scale, 0.01), 500);
+                        xMin = touchStartCenter.x - (touchStartCenter.x - startXMin) / (startXMax - startXMin) * newW;
+                        xMax = xMin + newW;
+                        yMin = touchStartCenter.y - (touchStartCenter.y - startYMin) / (startYMax - startYMin) * newH;
+                        yMax = yMin + newH;
+                        redraw();
+                    }
+                }, { passive: false });
+                canvas.addEventListener("touchend", () => { isPan = false; touchStartCenter = null; });
+
+                // Canvas control buttons
+                document.getElementById("zoomInBtn").addEventListener("click", () => zoom(0.9, true));
+                document.getElementById("zoomOutBtn").addEventListener("click", () => zoom(1.1, true));
+                document.getElementById("fitViewBtn").addEventListener("click", () => fitToAllGraphics(true));
+                document.getElementById("resetViewBtn").addEventListener("click", () => resetView(true));
+                document.getElementById("saveBtn").addEventListener("click", () => saveCanvasAsPNG());
+                document.getElementById("clearAllBtn").addEventListener("click", () => deleteAll());
+            }
+
+            async function loadApiKey() {
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) { API_KEY = cached; return true; }
+                try {
+                    const res = await fetch('https://api.textdb.online/maoziaikey');
+                    if (res.ok) {
+                        const text = await res.text();
+                        if (text && text.trim() !== 'null') {
+                            API_KEY = text.trim();
+                            localStorage.setItem(CACHE_KEY, API_KEY);
+                            return true;
+                        }
+                    }
+                    throw new Error('获取失败');
+                } catch (e) { return false; }
+            }
+
+            window.addEventListener('load', async () => {
+                loadTheme();
+                canvas = document.getElementById("cartesianCanvas");
+                ctx = canvas.getContext("2d");
+                loadSettings();
+                setupInteraction();
+                buildToolbar();
+                resetView(false);
+
+                const keyReady = await loadApiKey();
+                if (keyReady) {
+                    document.getElementById("sendBtn").addEventListener("click", () => {
+                        let input = document.getElementById("userInput");
+                        let msg = input.value.trim();
+                        if (!msg) return;
+                        input.value = "";
+                        sendToAI(msg);
+                    });
+                    document.getElementById("userInput").addEventListener("keypress", (e) => {
+                        if (e.key === "Enter") document.getElementById("sendBtn").click();
+                    });
+                } else {
+                    document.getElementById("sendBtn").disabled = true;
+                    setStatus("密钥未加载，请刷新重试", "error");
+                }
+
+                document.getElementById("btnFlash").addEventListener("click", () => {
+                    currentModel = "deepseek-v4-flash"; saveModelSetting(); updateModelButtons();
+                });
+                document.getElementById("btnPro").addEventListener("click", () => {
+                    currentModel = "deepseek-v4-pro"; saveModelSetting(); updateModelButtons();
+                });
+                document.getElementById("btnDeepThink").addEventListener("click", () => {
+                    deepThinkEnabled = !deepThinkEnabled;
+                    saveDeepThinkSetting(); updateDeepThinkButton();
+                    showToast(deepThinkEnabled ? '深度思考已启用' : '深度思考已关闭', 'info');
+                    setStatus(deepThinkEnabled ? "深度思考已启用" : "深度思考已关闭", "idle");
+                    setTimeout(() => setStatus("就绪", "idle"), 2000);
+                });
+                document.getElementById("themeToggle").addEventListener("click", toggleTheme);
+
+                document.getElementById("addSliderBtn").addEventListener("click", toggleAddSliderPopup);
+                document.getElementById("sliderConfirmBtn").addEventListener("click", confirmAddSlider);
+                document.getElementById("sliderCancelBtn").addEventListener("click", () => {
+                    document.getElementById('sliderAddPopup').classList.remove('visible');
+                });
+                document.getElementById("sliderAddPopup").addEventListener("keypress", (e) => {
+                    if (e.key === "Enter") confirmAddSlider();
+                });
+
+                document.getElementById("btnSegment").addEventListener("click", () => connectPoints('segment'));
+                document.getElementById("btnLine").addEventListener("click", () => connectPoints('line'));
+                document.getElementById("btnRay").addEventListener("click", () => connectPoints('ray'));
+
+                document.getElementById("kbToggleBtn").addEventListener("click", toggleKeyboard);
+                buildKeyboard();
+            });
+        })();
+    </script>
+</body>
+</html>
